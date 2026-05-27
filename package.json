@@ -6,14 +6,15 @@
   },
   "dependencies": {
     "@tailwindcss/postcss": "latest",
-    "next": "latest",
-    "react": "latest",
-    "react-dom": "latest",
-    "tailwindcss": "latest",
-    "typescript": "latest",
     "@types/node": "latest",
     "@types/react": "latest",
-    "@types/react-dom": "latest"
-  },
-  "devDependencies": {}
+    "@types/react-dom": "latest",
+    "next": "latest",
+    "papaparse": "^5.5.3",
+    "react": "latest",
+    "react-dom": "latest",
+    "recharts": "^3.8.1",
+    "tailwindcss": "latest",
+    "typescript": "latest"
+  }
 }
