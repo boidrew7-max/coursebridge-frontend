@@ -22,3 +22,7 @@ vectors = vectorizer.fit_transform(sample_courses["requirement"])
 
 print("Text data converted for ML.")
 print(vectors.shape)
+
+sample_courses.to_csv("processed/sample_courses.csv", index=False)
+
+print("Saved processed/sample_courses.csv")
