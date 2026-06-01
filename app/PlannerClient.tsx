@@ -2,6 +2,33 @@
 
 import { ReactNode, useEffect, useMemo, useState } from "react";
 
+const commonCompletedCourseAliases: Record<string, string[]> = {
+  "MATH 110A": ["calc 1", "calculus 1", "calculus one"],
+  "MATH 110B": ["calc 2", "calculus 2", "calculus two"],
+  "ECON 1": ["intro micro", "microeconomics", "econ 1"],
+  "ECON 2": ["intro macro", "macroeconomics", "econ 2"],
+  "STAT C1000": ["statistics", "stats", "intro stats"],
+};
+
+function normalize(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function equivalentCourseKeys(value: string) {
+  const normalizedValue = normalize(value);
+  const keys = new Set([normalizedValue]);
+
+  for (const [courseCode, aliases] of Object.entries(
+    commonCompletedCourseAliases
+  )) {
+    if (normalize(courseCode) === normalizedValue) {
+      aliases.forEach((alias) => keys.add(normalize(alias)));
+    }
+  }
+
+  return keys;
+}
+
 type Priority = "High" | "Medium" | "Low";
 
 type CourseRequirement = {
@@ -592,9 +619,6 @@ const geFillerAreas: GEFillerArea[] = [
   },
 ];
 
-function normalize(value: string) {
-  return value.toUpperCase().replace(/[^A-Z0-9]/g, "");
-}
 
 function parseCompletedCourses(input: string) {
   return input
@@ -608,13 +632,15 @@ function courseMatchesInput(course: CourseRequirement, rawInputs: string[]) {
     course.code,
     course.name,
     ...(course.aliases ?? []),
-  ].map(normalize);
+  ].flatMap((name) => [...equivalentCourseKeys(name)]);
 
   return rawInputs.some((input) => acceptedNames.includes(normalize(input)));
 }
 
 function codeWasEntered(code: string, rawInputs: string[]) {
-  return rawInputs.some((input) => normalize(input) === normalize(code));
+  const acceptedKeys = equivalentCourseKeys(code);
+
+  return rawInputs.some((input) => acceptedKeys.has(normalize(input)));
 }
 
 function completedHasCode(
