@@ -1,6 +1,7 @@
 "use client";
 
 import { ReactNode, useEffect, useMemo, useState } from "react";
+import { interpretCompletedCourses } from "../lib/courseInterpreter.js";
 
 const commonCompletedCourseAliases: Record<string, string[]> = {
   "MATH 110A": ["calc 1", "calculus 1", "calculus one"],
@@ -620,13 +621,6 @@ const geFillerAreas: GEFillerArea[] = [
 ];
 
 
-function parseCompletedCourses(input: string) {
-  return input
-    .split(/,|\n|;/)
-    .map((course) => course.trim())
-    .filter(Boolean);
-}
-
 function courseMatchesInput(course: CourseRequirement, rawInputs: string[]) {
   const acceptedNames = [
     course.code,
@@ -923,7 +917,10 @@ export default function PlannerClient() {
       return;
     }
 
-    const rawCompleted = parseCompletedCourses(completedCourses);
+    const { matchedCourses: rawCompleted, uncertainMatches } = interpretCompletedCourses(
+      completedCourses,
+      activeRequirements
+    );
 
     const completed = selectedPlan.requiredCourses.filter((course) =>
       requirementIsCompleted(course, rawCompleted)
@@ -965,6 +962,12 @@ export default function PlannerClient() {
 
     const sequence = buildSequence(missing, completedCodes, rawCompleted);
 
+    const uncertaintyWarning = uncertainMatches.length
+      ? `Some completed courses were ambiguous or could not be resolved exactly: ${uncertainMatches
+          .map((item) => item.input)
+          .join(', ')}. Verify your entries and the final plan with a counselor.`
+      : "";
+
     setResult({
       completed,
       missing,
@@ -977,8 +980,12 @@ export default function PlannerClient() {
         selectedPlan.competitivenessNote
       ),
       notes: selectedPlan.notes,
-      warning:
+      warning: [
         "GE filler classes are not major requirements. Use them only to balance your schedule, and verify all GE/transfer requirements with ASSIST.org and a counselor.",
+        uncertaintyWarning,
+      ]
+        .filter(Boolean)
+        .join(' '),
     });
   }
 
@@ -1184,12 +1191,14 @@ export default function PlannerClient() {
                 <textarea
                   value={completedCourses}
                   onChange={(event) => {
-                    setCompletedCourses(event.target.value);
+                    const v = event.target.value;
+                    setCompletedCourses(v);
                     resetResults();
                   }}
                   className="min-h-40 w-full rounded-2xl border border-[#d1c7b8] bg-white px-4 py-3 text-sm text-[#303236] outline-none transition placeholder:text-[#a2a7af] focus:border-[#0b7f46] focus:ring-4 focus:ring-[#0b7f46]/10"
                   placeholder="Example: econ1, math110a, math130, cs111c"
                 />
+
               </label>
 
               <button

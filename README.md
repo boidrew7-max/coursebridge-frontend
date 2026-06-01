@@ -50,6 +50,13 @@ The scraper will:
 - `/public` - Static assets
 - `/middleware` - Custom middleware
 
+## Recent updates
+
+- Added deterministic completed-course interpretation for user-entered course text
+- Integrated course alias matching and fuzzy recognition for informal inputs like `calc 1`, `microeconomics`, and `econ 1`
+- Removed the old browser spellcheck debounce path from the planner UI
+- Verified the app builds successfully with `npm run build`
+
 ## Scripts
 
 - `npm run dev` - Start development server
