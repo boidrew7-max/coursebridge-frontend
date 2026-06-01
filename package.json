@@ -2,19 +2,41 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "scrape:ccsf-ucberkeley": "node scripts/scrape_ccsf_ucberkeley_clean.js"
   },
   "dependencies": {
     "@tailwindcss/postcss": "latest",
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
+    "csv-parse": "^6.2.1",
     "next": "latest",
+    "node-fetch": "^3.3.2",
     "papaparse": "^5.5.3",
     "react": "latest",
     "react-dom": "latest",
     "recharts": "^3.8.1",
     "tailwindcss": "latest",
+    "tough-cookie": "^6.0.1",
     "typescript": "latest"
-  }
+  },
+  "name": "coursebridge-ai",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "devDependencies": {
+    "playwright": "^1.60.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vibecodingpro67/coursebridge-ai.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/vibecodingpro67/coursebridge-ai/issues"
+  },
+  "homepage": "https://github.com/vibecodingpro67/coursebridge-ai#readme"
 }
