@@ -691,6 +691,78 @@ function prerequisitesMet(
   );
 }
 
+// Extract subject code from course code (e.g., "MATH 110A" -> "MATH")
+function getSubject(courseCode: string): string {
+  const match = courseCode.match(/^([A-Z]+)/);
+  return match ? match[1] : "OTHER";
+}
+
+// Determine difficulty level for a course
+function getCourseDifficulty(course: CourseRequirement): 'hard' | 'medium' | 'light' {
+  const subject = getSubject(course.code);
+  const code = course.code.toUpperCase();
+
+  // Hard STEM courses
+  const hardSubjects = ['MATH', 'PHYSICS', 'CHEM', 'CS', 'ENGR'];
+  const hardKeywords = ['CALCULUS', 'LINEAR ALGEBRA', 'PHYSICS', 'LAB', 'DATA STRUCTURES'];
+  
+  if (hardSubjects.includes(subject)) return 'hard';
+  if (hardKeywords.some(kw => code.includes(kw) || course.name.includes(kw))) return 'hard';
+  
+  // Medium courses
+  const mediumSubjects = ['ECON', 'STAT', 'ASTRON', 'BIOL', 'CHEM'];
+  if (mediumSubjects.includes(subject)) return 'medium';
+  
+  // Light courses (writing, GE, intro surveys)
+  return 'light';
+}
+
+// Count hard courses in a term
+function countHardCoursesInTerm(term: CourseRequirement[]): number {
+  return term.filter(c => getCourseDifficulty(c) === 'hard').length;
+}
+
+// Get subject distribution in a term
+function getSubjectDistribution(term: CourseRequirement[]): Record<string, number> {
+  const dist: Record<string, number> = {};
+  for (const course of term) {
+    const subject = getSubject(course.code);
+    dist[subject] = (dist[subject] || 0) + 1;
+  }
+  return dist;
+}
+
+// Check if adding a course creates too much subject concentration
+function wouldCreateSubjectConcentration(term: CourseRequirement[], newCourse: CourseRequirement): boolean {
+  const dist = getSubjectDistribution(term);
+  const newSubject = getSubject(newCourse.code);
+  const newCount = (dist[newSubject] || 0) + 1;
+  
+  // Avoid 3+ of same subject in one term
+  return newCount >= 3;
+}
+
+// Score a candidate for a term (lower is better - more balanced)
+function scoreTermCandidateBalance(term: CourseRequirement[], candidate: CourseRequirement): number {
+  let score = 0;
+  
+  // Penalty for adding hard course if already have 2
+  if (getCourseDifficulty(candidate) === 'hard' && countHardCoursesInTerm(term) >= 2) {
+    score += 100;
+  }
+  
+  // Penalty for subject concentration
+  if (wouldCreateSubjectConcentration(term, candidate)) {
+    score += 50;
+  }
+  
+  // Bonus for course priority
+  score -= priorityValue(candidate.priority) * 10;
+  
+  return score;
+}
+
+// Improved sequence building with balance considerations
 function buildSequence(
   missing: CourseRequirement[],
   completedCodes: Set<string>,
@@ -699,31 +771,82 @@ function buildSequence(
   const remaining = [...missing];
   const plannedCodes = new Set(completedCodes);
   const terms: CourseRequirement[][] = [];
+  const MAX_COURSES_PER_TERM = 4;
+  const MAX_HARD_COURSES_PER_TERM = 2;
 
   for (let term = 0; term < 4 && remaining.length > 0; term++) {
+    const currentTerm: CourseRequirement[] = [];
     const available = remaining
-      .filter((course) => prerequisitesMet(course, plannedCodes, rawInputs))
-      .sort((a, b) => priorityValue(a.priority) - priorityValue(b.priority))
-      .slice(0, 3);
+      .filter((course) => prerequisitesMet(course, plannedCodes, rawInputs));
 
     if (available.length === 0) break;
 
-    terms.push(available);
+    // Build term by selecting balanced courses
+    let maxCourses = Math.min(3 + (term === 0 ? 1 : 0), MAX_COURSES_PER_TERM); // First term can have 4
+    
+    while (currentTerm.length < maxCourses && available.length > 0) {
+      let bestIdx = -1;
+      let bestScore = Infinity;
 
-    for (const course of available) {
-      plannedCodes.add(course.code);
+      // Find the best candidate to balance this term
+      for (let i = 0; i < available.length; i++) {
+        const course = available[i];
+        
+        // Skip if would exceed hard course limit
+        if (getCourseDifficulty(course) === 'hard' && 
+            countHardCoursesInTerm(currentTerm) >= MAX_HARD_COURSES_PER_TERM &&
+            remaining.length > currentTerm.length + 1) {
+          continue;
+        }
+        
+        // Skip if would create severe subject concentration (unless no other option)
+        if (wouldCreateSubjectConcentration(currentTerm, course) && available.length > 1) {
+          continue;
+        }
+
+        const score = scoreTermCandidateBalance(currentTerm, course);
+        
+        if (score < bestScore) {
+          bestScore = score;
+          bestIdx = i;
+        }
+      }
+
+      if (bestIdx === -1) {
+        // No ideal candidates - take highest priority available
+        bestIdx = available.findIndex(c => c.priority === 'High') ?? 0;
+        if (bestIdx === -1) bestIdx = 0;
+      }
+
+      const selected = available.splice(bestIdx, 1)[0];
+      currentTerm.push(selected);
+      plannedCodes.add(selected.code);
+      
+      const idx = remaining.findIndex(c => c.code === selected.code);
+      if (idx !== -1) remaining.splice(idx, 1);
     }
 
-    for (const course of available) {
-      const index = remaining.findIndex((item) => item.code === course.code);
-      if (index !== -1) remaining.splice(index, 1);
+    if (currentTerm.length > 0) {
+      terms.push(currentTerm);
     }
   }
 
   return terms;
 }
 
-function getCompetitiveness(score: number, note: string) {
+// Format course display, avoiding duplicates
+function formatCourseDisplay(course: CourseRequirement): string {
+  const codeNorm = normalize(course.code);
+  const nameNorm = normalize(course.name);
+  
+  // If code and name are essentially the same (normalized), show only once
+  if (codeNorm === nameNorm) {
+    return course.code;
+  }
+  
+  // Otherwise show both
+  return `${course.code} — ${course.name}`;
+}
   if (score >= 80) {
     return `Strong — most listed requirements are complete. ${note}`;
   }
@@ -984,7 +1107,10 @@ export default function PlannerClient() {
       ),
       notes: selectedPlan.notes,
       warning: [
-        "GE filler classes are not major requirements. Use them only to balance your schedule, and verify all GE/transfer requirements with ASSIST.org and a counselor.",
+        "Course sequence is an estimate based on available articulation/prerequisite data. Prerequisites and sequencing rules may be incomplete or not fully verified.",
+        "Confirm all prerequisite requirements, unit limits, course availability, and transfer credits with ASSIST.org and a counselor before registering.",
+        "The recommended sequence balances course difficulty and subject distribution, but actual enrollment may vary based on course availability, your schedule, and counselor guidance.",
+        "GE filler classes are not major requirements. Use them only to balance your schedule.",
         uncertaintyWarning,
       ]
         .filter(Boolean)
@@ -1328,7 +1454,7 @@ export default function PlannerClient() {
                                 key={course.code}
                                 className="text-sm text-[#6f7680]"
                               >
-                                {course.code} — {course.name}
+                                {formatCourseDisplay(course)}
                               </p>
                             ))}
                           </div>
