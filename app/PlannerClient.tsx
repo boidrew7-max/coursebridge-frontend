@@ -963,8 +963,10 @@ export default function PlannerClient() {
 
     const sequence = buildSequence(missing, completedCodes, rawCompleted);
 
-    const uncertaintyWarning = uncertainMatches.length
-      ? `Some completed courses were ambiguous or could not be resolved exactly: ${uncertainMatches
+    // Defensive fallback: ensure uncertainMatches is an array
+    const safeUncertainMatches = Array.isArray(uncertainMatches) ? uncertainMatches : [];
+    const uncertaintyWarning = safeUncertainMatches.length
+      ? `Some completed courses were ambiguous or could not be resolved exactly: ${safeUncertainMatches
           .map((item) => item.input)
           .join(', ')}. Verify your entries and the final plan with a counselor.`
       : "";

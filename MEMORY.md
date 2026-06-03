@@ -1,0 +1,1 @@
+- [Fix uncertainMatches.length runtime error](fix-uncertainmatches-length-error.md) — Defensive fallback to prevent TypeError when uncertainMatches is undefined
