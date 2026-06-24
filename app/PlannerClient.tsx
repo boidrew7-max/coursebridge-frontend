@@ -1,6 +1,6 @@
 "use client";
 
-import { ReactNode, useEffect, useMemo, useState } from "react";
+import { ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { interpretCompletedCourses } from "../lib/courseInterpreter.js";
 
 const commonCompletedCourseAliases: Record<string, string[]> = {
@@ -974,6 +974,66 @@ export default function PlannerClient() {
   const [completedCourses, setCompletedCourses] = useState("");
   const [result, setResult] = useState<TransferResult | null>(null);
 
+  // ── Transfer AI chat ──────────────────────────────────────────
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (chatOpen) chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages, chatOpen]);
+
+  const plannerContext = useMemo(() => ({
+    college:          communityCollege,
+    targetUniversity: targetSchool,
+    major:            targetMajor,
+    completedCourses: result?.completed ?? [],
+    missingCourses:   result?.missing ?? [],
+    blockedCourses:   result?.blocked ?? [],
+    readinessScore:   result?.readinessScore ?? null,
+  }), [communityCollege, targetSchool, targetMajor, result]);
+
+  const sendChatMessage = useCallback(async (text?: string) => {
+    const message = (text ?? chatInput).trim();
+    if (!message || chatLoading) return;
+    setChatInput("");
+    const newHistory = [...chatMessages, { role: "user" as const, content: message }];
+    setChatMessages(newHistory);
+    setChatLoading(true);
+    let reply = "";
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message, history: chatMessages, plannerContext }),
+      });
+      if (!res.ok || !res.body) throw new Error("Failed to reach Transfer AI");
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      setChatMessages([...newHistory, { role: "assistant", content: "" }]);
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const lines = decoder.decode(value).split("\n");
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const data = line.slice(6);
+          if (data === "[DONE]") break;
+          try {
+            reply += JSON.parse(data);
+            setChatMessages([...newHistory, { role: "assistant", content: reply }]);
+          } catch {}
+        }
+      }
+    } catch {
+      setChatMessages([...newHistory, { role: "assistant", content: "Something went wrong. Please try again." }]);
+    } finally {
+      setChatLoading(false);
+    }
+  }, [chatInput, chatMessages, chatLoading, plannerContext]);
+
   useEffect(() => {
     fetch('/data/assist_articulations.json')
       .then((res) => res.json())
@@ -1533,6 +1593,100 @@ export default function PlannerClient() {
           ASSIST.org, official college catalogs, and a counselor.
         </footer>
       </section>
+
+      {/* ── Transfer AI floating chat ─────────────────────────── */}
+      <button
+        onClick={() => setChatOpen(true)}
+        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full bg-[#0b7f46] px-5 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-[#08683a] active:scale-95"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+        Ask Transfer AI
+      </button>
+
+      {chatOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-end p-4 sm:p-6 pointer-events-none">
+          <div className="pointer-events-auto flex h-[600px] w-full max-w-md flex-col rounded-2xl border border-[#d8d0c3] bg-white shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between rounded-t-2xl bg-[#0b7f46] px-4 py-3">
+              <div>
+                <p className="font-bold text-white">Transfer AI</p>
+                {communityCollege && targetSchool && (
+                  <p className="text-xs text-white/80">{communityCollege} → {targetSchool}{targetMajor ? ` · ${targetMajor}` : ""}</p>
+                )}
+              </div>
+              <button onClick={() => setChatOpen(false)} className="rounded-full p-1 text-white/80 transition hover:bg-white/20 hover:text-white">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {chatMessages.length === 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm text-[#7b818b]">
+                    {communityCollege && targetSchool
+                      ? `I can see your ${communityCollege} → ${targetSchool}${targetMajor ? ` (${targetMajor})` : ""} plan. Ask me anything about your transfer.`
+                      : "Set up your transfer plan above, then ask me anything about transferring to a UC."}
+                  </p>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {(result ? [
+                      "What should I take next semester?",
+                      "How competitive is my GPA for this school?",
+                      "Tell me about TAG for my target UC",
+                    ] : [
+                      "What is IGETC?",
+                      "How does TAG work?",
+                      "What GPA do I need to transfer?",
+                    ]).map((q) => (
+                      <button key={q} onClick={() => sendChatMessage(q)}
+                        className="rounded-full border border-[#d8d0c3] bg-[#faf8f3] px-3 py-1 text-xs text-[#4d535c] transition hover:border-[#0b7f46] hover:text-[#0b7f46]">
+                        {q}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {chatMessages.map((msg, i) => (
+                <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                  <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${
+                    msg.role === "user"
+                      ? "bg-[#0b7f46] text-white"
+                      : "border border-[#d8d0c3] bg-[#faf8f3] text-[#303236]"
+                  }`}>
+                    {msg.content || (msg.role === "assistant" && chatLoading ? <span className="animate-pulse">…</span> : "")}
+                  </div>
+                </div>
+              ))}
+              <div ref={chatEndRef} />
+            </div>
+
+            {/* Input */}
+            <div className="border-t border-[#d8d0c3] p-3">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChatMessage(); } }}
+                  placeholder="Ask about your transfer plan…"
+                  className="flex-1 rounded-xl border border-[#d8d0c3] bg-[#faf8f3] px-3 py-2 text-sm outline-none transition focus:border-[#0b7f46] focus:ring-2 focus:ring-[#0b7f46]/10"
+                />
+                <button
+                  onClick={() => sendChatMessage()}
+                  disabled={!chatInput.trim() || chatLoading}
+                  className="rounded-xl bg-[#0b7f46] px-3 py-2 text-white transition hover:bg-[#08683a] disabled:opacity-40"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
