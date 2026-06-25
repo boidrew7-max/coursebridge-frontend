@@ -992,6 +992,8 @@ export default function PlannerClient() {
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
   const [onboardingDone, setOnboardingDone] = useState(false);
+  const [aiPlan, setAiPlan] = useState("");
+  const [aiPlanLoading, setAiPlanLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const onboardingStarted = useRef(false);
 
@@ -1085,6 +1087,22 @@ export default function PlannerClient() {
     }
   }, [chatOpen, chatMessages.length, runOnboardingMessage, onboardingDone]);
 
+  async function generateAIPlan(college: string, schools: string[], major: string, courses: string) {
+    setAiPlanLoading(true);
+    setAiPlan("");
+    const coursePart = courses.trim()
+      ? `I've completed these courses: ${courses}.`
+      : "I haven't completed any courses yet.";
+    const message = `I attend ${college} and want to transfer to ${schools.join(" and ")} for ${major}. ${coursePart} Please give me a complete personalized transfer plan — required courses, articulation agreements, TAG eligibility, IGETC, and what I should prioritize next.`;
+    try {
+      await streamResponse("/api/chat", [{ role: "user", content: message }], (r) => setAiPlan(r));
+    } catch {
+      setAiPlan("Something went wrong generating your plan. Try asking the AI chat directly.");
+    } finally {
+      setAiPlanLoading(false);
+    }
+  }
+
   function completeWizard() {
     const courses = wizardNoCourses ? "" : wizardCourses;
     if (wizardCollege)    setCommunityCollege(wizardCollege);
@@ -1094,13 +1112,10 @@ export default function PlannerClient() {
     setPlanSchools(wizardUCs);
     setActiveSchoolTab(wizardUCs[0] ?? "");
     setOnboardingDone(true);
-    // Scroll to planner first, then trigger plan generation after React has re-rendered
     setTimeout(() => {
       document.getElementById("planner")?.scrollIntoView({ behavior: "smooth" });
     }, 100);
-    setTimeout(() => {
-      document.querySelector<HTMLButtonElement>("[data-generate-plan]")?.click();
-    }, 600);
+    generateAIPlan(wizardCollege, wizardUCs, wizardMajor, courses);
   }
 
   const sendChatMessage = useCallback(async (text?: string) => {
@@ -1551,7 +1566,19 @@ export default function PlannerClient() {
           </div>
 
           <div className="rounded-3xl border border-[#d8d0c3] bg-[#faf8f3] p-6 shadow-[0_18px_45px_rgba(67,54,36,0.08)]">
-            {!result && <EmptyDashboard />}
+            {/* AI-generated plan from Flask backend */}
+            {(aiPlanLoading || aiPlan) && (
+              <div className="mb-6">
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-xs font-bold uppercase tracking-widest text-[#0b7f46]">Transfer AI Plan</span>
+                  {aiPlanLoading && <span className="text-xs text-[#7b818b] animate-pulse">generating…</span>}
+                </div>
+                <div className="rounded-2xl border border-[#d8d0c3] bg-white p-4 text-sm text-[#303236] leading-7 whitespace-pre-wrap">
+                  {aiPlan || <span className="text-[#a2a7af] animate-pulse">Transfer AI is building your personalized plan…</span>}
+                </div>
+              </div>
+            )}
+            {!result && !aiPlan && !aiPlanLoading && <EmptyDashboard />}
 
             {result?.error && (
               <div className="rounded-2xl border border-[#ef9a9a] bg-[#fff0f0] p-6">
