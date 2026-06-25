@@ -1232,8 +1232,34 @@ export default function PlannerClient() {
   async function generateAIPlan(college: string, school: string, major: string, courses: string) {
     setAiPlanLoading(true);
     setAiPlan("");
-    const coursePart = courses.trim() ? `Completed so far: ${courses}.` : "No courses completed yet.";
-    const message = `I'm at ${college} transferring to ${school} for ${major}. ${coursePart} Give me: (1) which ${college} courses satisfy ${school} ${major} requirements with exact articulation, (2) a semester-by-semester 2-year schedule, (3) TAG eligibility, (4) IGETC notes. Be specific and accurate — only state articulations you have data for.`;
+    const coursePart = courses.trim() ? `Courses already completed: ${courses}.` : "No courses completed yet — plan from the beginning.";
+    const message = `Build a semester-by-semester transfer schedule for a student at ${college} planning to transfer to ${school} to study ${major}. ${coursePart}
+
+Format the output exactly like this:
+## Fall Semester 1
+- [Course name or requirement]
+- ...
+
+## Spring Semester 1
+- ...
+
+## Fall Semester 2
+- ...
+
+## Spring Semester 2
+- ...
+
+## Key Notes
+- TAG eligibility (if applicable)
+- IGETC recommendation
+- GPA target
+
+IMPORTANT RULES:
+- Do NOT invent course numbers. Only name a specific course number (e.g. MATH 1A) if you have verified articulation data from your ASSIST database for ${college}.
+- If you don't have a specific articulation, describe the requirement instead (e.g. "Calculus I — check ASSIST.org for exact course").
+- Keep each semester to 4–5 courses (15–17 units).
+- Skip any requirements the student already completed.
+- Be concise — no long preambles or introductions.`;
     try {
       await streamResponse("/api/chat", [{ role: "user", content: message }], (r) => {
         // Strip the model-switch notice from the displayed output
