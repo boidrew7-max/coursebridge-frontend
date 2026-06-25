@@ -980,9 +980,13 @@ export default function PlannerClient() {
   // ── Wizard onboarding ─────────────────────────────────────────
   const [wizardStep, setWizardStep] = useState<1|2|3|4>(1);
   const [wizardCollege, setWizardCollege] = useState("");
-  const [wizardUC, setWizardUC] = useState("");
+  const [wizardUCs, setWizardUCs] = useState<string[]>([]);
   const [wizardMajor, setWizardMajor] = useState("");
   const [wizardCourses, setWizardCourses] = useState("");
+  const [wizardNoCourses, setWizardNoCourses] = useState(false);
+  // ── Multi-school tabs ─────────────────────────────────────────
+  const [planSchools, setPlanSchools] = useState<string[]>([]);
+  const [activeSchoolTab, setActiveSchoolTab] = useState("");
   const [chatMode, setChatMode] = useState<"onboarding" | "advisor">("onboarding");
   const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   const [chatInput, setChatInput] = useState("");
@@ -1082,10 +1086,13 @@ export default function PlannerClient() {
   }, [chatOpen, chatMessages.length, runOnboardingMessage, onboardingDone]);
 
   function completeWizard() {
-    if (wizardCollege) setCommunityCollege(wizardCollege);
-    if (wizardUC)      setTargetSchool(wizardUC);
-    if (wizardMajor)   setTargetMajor(wizardMajor);
-    if (wizardCourses) setCompletedCourses(wizardCourses);
+    const courses = wizardNoCourses ? "" : wizardCourses;
+    if (wizardCollege)      setCommunityCollege(wizardCollege);
+    if (wizardUCs.length)   setTargetSchool(wizardUCs[0]);
+    if (wizardMajor)        setTargetMajor(wizardMajor);
+    setCompletedCourses(courses);
+    setPlanSchools(wizardUCs);
+    setActiveSchoolTab(wizardUCs[0] ?? "");
     setOnboardingDone(true);
     setTimeout(() => {
       document.querySelector<HTMLButtonElement>("[data-generate-plan]")?.click();
@@ -1449,9 +1456,22 @@ export default function PlannerClient() {
           </Step>
         </section>
 
+        {/* ── School tabs ─────────────────────────────────────── */}
+        {planSchools.length > 1 && (
+          <div className="mt-16 flex flex-wrap gap-2">
+            {planSchools.map(school => (
+              <button key={school}
+                onClick={() => { setTargetSchool(school); setActiveSchoolTab(school); setResult(null); setTimeout(() => document.querySelector<HTMLButtonElement>("[data-generate-plan]")?.click(), 100); }}
+                className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${activeSchoolTab === school ? "border-[#0b7f46] bg-[#0b7f46] text-white" : "border-[#d8d0c3] bg-[#faf8f3] text-[#4d535c] hover:border-[#0b7f46] hover:text-[#0b7f46]"}`}>
+                {school}
+              </button>
+            ))}
+          </div>
+        )}
+
         <section
           id="planner"
-          className="mt-16 grid gap-6 lg:grid-cols-[0.72fr_1.28fr]"
+          className={`${planSchools.length > 1 ? "mt-4" : "mt-16"} grid gap-6 lg:grid-cols-[0.72fr_1.28fr]`}
         >
           <div className="rounded-3xl border border-[#d8d0c3] bg-[#faf8f3] p-6 shadow-[0_18px_45px_rgba(67,54,36,0.08)]">
             <h2 className="text-3xl font-bold text-[#303236]">
@@ -1684,7 +1704,8 @@ export default function PlannerClient() {
         const UC_OPTIONS = ["UCLA","UC Berkeley","UC San Diego","UC Irvine","UC Santa Barbara","UC Davis","UC Santa Cruz","UC Riverside","UC Merced"];
         const CC_SUGGESTIONS = ["De Anza College","Mt. SAC","Santa Monica College","Diablo Valley College","City College of SF","Foothill College","Pasadena City College","El Camino College","Irvine Valley College","Los Angeles Valley College","Cerritos College","Grossmont College","Palomar College","Saddleback College"];
         const MAJOR_SUGGESTIONS = ["Computer Science","Business Administration","Economics","Psychology","Biology","Nursing","Engineering","Political Science","Sociology","Mathematics","English","Data Science","Mechanical Engineering","Electrical Engineering","Chemistry","Kinesiology","Communications","Accounting","Architecture","Film & Media Studies"];
-        const steps = ["College","Target UC","Major","Courses"];
+        const steps = ["College","Target UCs","Major","Courses"];
+        const toggleUC = (uc: string) => setWizardUCs(prev => prev.includes(uc) ? prev.filter(u => u !== uc) : [...prev, uc]);
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
             <div className="w-full max-w-lg rounded-3xl bg-white shadow-2xl overflow-hidden">
@@ -1723,8 +1744,7 @@ export default function PlannerClient() {
                         </button>
                       ))}
                     </div>
-                    <div className="flex justify-between items-center pt-2">
-                      <button onClick={() => { setOnboardingDone(true); }} className="text-sm text-[#a2a7af] hover:text-[#7b818b] transition">Skip setup</button>
+                    <div className="flex justify-end pt-2">
                       <button onClick={() => setWizardStep(2)} disabled={!wizardCollege.trim()}
                         className="rounded-2xl bg-[#0b7f46] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#08683a] disabled:opacity-40">
                         Next →
@@ -1732,25 +1752,28 @@ export default function PlannerClient() {
                     </div>
                   </div>
                 )}
-                {/* Step 2 — Target UC */}
+                {/* Step 2 — Target UCs (multi-select) */}
                 {wizardStep === 2 && (
                   <div className="flex flex-col gap-5">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-widest text-[#0b7f46]">Step 2 of 4</p>
-                      <h2 className="mt-1 text-2xl font-bold text-[#303236]">Which UC are you aiming for?</h2>
-                      <p className="mt-1 text-sm text-[#7b818b]">Select your target campus</p>
+                      <h2 className="mt-1 text-2xl font-bold text-[#303236]">Which UCs are you considering?</h2>
+                      <p className="mt-1 text-sm text-[#7b818b]">Select all that apply — we'll build a plan for each</p>
                     </div>
                     <div className="grid grid-cols-3 gap-2">
                       {UC_OPTIONS.map(uc => (
-                        <button key={uc} onClick={() => setWizardUC(uc)}
-                          className={`rounded-2xl border px-3 py-3 text-sm font-semibold transition ${wizardUC === uc ? "border-[#0b7f46] bg-[#f0faf5] text-[#0b7f46]" : "border-[#d8d0c3] bg-[#faf8f3] text-[#303236] hover:border-[#0b7f46] hover:text-[#0b7f46]"}`}>
-                          {uc}
+                        <button key={uc} onClick={() => toggleUC(uc)}
+                          className={`rounded-2xl border px-3 py-3 text-sm font-semibold transition ${wizardUCs.includes(uc) ? "border-[#0b7f46] bg-[#f0faf5] text-[#0b7f46]" : "border-[#d8d0c3] bg-[#faf8f3] text-[#303236] hover:border-[#0b7f46] hover:text-[#0b7f46]"}`}>
+                          {wizardUCs.includes(uc) ? "✓ " : ""}{uc}
                         </button>
                       ))}
                     </div>
+                    {wizardUCs.length > 0 && (
+                      <p className="text-xs text-[#0b7f46] font-medium">{wizardUCs.length} school{wizardUCs.length > 1 ? "s" : ""} selected</p>
+                    )}
                     <div className="flex justify-between items-center pt-2">
                       <button onClick={() => setWizardStep(1)} className="text-sm text-[#7b818b] transition hover:text-[#303236]">← Back</button>
-                      <button onClick={() => setWizardStep(3)} disabled={!wizardUC}
+                      <button onClick={() => setWizardStep(3)} disabled={wizardUCs.length === 0}
                         className="rounded-2xl bg-[#0b7f46] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#08683a] disabled:opacity-40">
                         Next →
                       </button>
@@ -1802,23 +1825,27 @@ export default function PlannerClient() {
                       <h2 className="mt-1 text-2xl font-bold text-[#303236]">What courses have you finished?</h2>
                       <p className="mt-1 text-sm text-[#7b818b]">List them in plain text — don't worry about formatting</p>
                     </div>
-                    <textarea
-                      value={wizardCourses}
-                      onChange={e => setWizardCourses(e.target.value)}
-                      placeholder="e.g. Calc 1, English 1A, Intro to CS, Econ 1"
-                      rows={4}
-                      className="w-full rounded-2xl border border-[#d1c7b8] bg-[#faf8f3] px-4 py-3 text-sm text-[#303236] outline-none transition focus:border-[#0b7f46] focus:ring-4 focus:ring-[#0b7f46]/10 resize-none"
-                      autoFocus
-                    />
+                    <label className="flex items-center gap-3 cursor-pointer select-none">
+                      <input type="checkbox" checked={wizardNoCourses} onChange={e => { setWizardNoCourses(e.target.checked); if (e.target.checked) setWizardCourses(""); }}
+                        className="w-4 h-4 rounded accent-[#0b7f46]" />
+                      <span className="text-sm text-[#303236]">I haven't completed any classes yet</span>
+                    </label>
+                    {!wizardNoCourses && (
+                      <textarea
+                        value={wizardCourses}
+                        onChange={e => setWizardCourses(e.target.value)}
+                        placeholder="e.g. Calc 1, English 1A, Intro to CS, Econ 1"
+                        rows={4}
+                        className="w-full rounded-2xl border border-[#d1c7b8] bg-[#faf8f3] px-4 py-3 text-sm text-[#303236] outline-none transition focus:border-[#0b7f46] focus:ring-4 focus:ring-[#0b7f46]/10 resize-none"
+                        autoFocus
+                      />
+                    )}
                     <div className="flex justify-between items-center pt-2">
                       <button onClick={() => setWizardStep(3)} className="text-sm text-[#7b818b] transition hover:text-[#303236]">← Back</button>
-                      <div className="flex gap-3">
-                        <button onClick={completeWizard} className="text-sm text-[#7b818b] transition hover:text-[#303236]">Skip</button>
-                        <button onClick={completeWizard} disabled={!wizardCourses.trim()}
-                          className="rounded-2xl bg-[#0b7f46] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#08683a] disabled:opacity-40">
-                          Build My Plan →
-                        </button>
-                      </div>
+                      <button onClick={completeWizard} disabled={!wizardNoCourses && !wizardCourses.trim()}
+                        className="rounded-2xl bg-[#0b7f46] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#08683a] disabled:opacity-40">
+                        Build My Plan →
+                      </button>
                     </div>
                   </div>
                 )}
