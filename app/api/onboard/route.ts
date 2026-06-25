@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
-  const TRANSFER_AI_URL = process.env.TRANSFER_AI_URL || "https://course-bridge-ai.fly.dev";
+  const TRANSFER_AI_URL = process.env.TRANSFER_AI_URL || "https://course-bridge-ai-production.up.railway.app";
   try {
     const body = await req.json();
     const upstream = await fetch(`${TRANSFER_AI_URL}/onboard`, {
