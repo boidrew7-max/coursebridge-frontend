@@ -976,14 +976,29 @@ export default function PlannerClient() {
 
   // ── Transfer AI chat ──────────────────────────────────────────
   const [chatOpen, setChatOpen] = useState(false);
+  const [chatMode, setChatMode] = useState<"onboarding" | "advisor">("onboarding");
   const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
+  const [onboardingDone, setOnboardingDone] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const onboardingStarted = useRef(false);
 
   useEffect(() => {
     if (chatOpen) chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages, chatOpen]);
+
+  // Parse |||JSON{...}||| blocks from AI onboarding responses
+  function parseOnboardingJSON(text: string): { college: string; targetSchool: string; major: string; completedCourses: string; ready: boolean } | null {
+    const match = text.match(/\|\|\|JSON(\{.*?\})\|\|\|/s);
+    if (!match) return null;
+    try { return JSON.parse(match[1]); } catch { return null; }
+  }
+
+  // Strip the JSON block from displayed message
+  function cleanMessage(text: string): string {
+    return text.replace(/\|\|\|JSON\{.*?\}\|\|\|/s, "").trim();
+  }
 
   const plannerContext = useMemo(() => ({
     college:          communityCollege,
@@ -995,44 +1010,95 @@ export default function PlannerClient() {
     readinessScore:   result?.readinessScore ?? null,
   }), [communityCollege, targetSchool, targetMajor, result]);
 
+  const streamResponse = useCallback(async (endpoint: string, history: { role: string; content: string }[], onChunk: (reply: string) => void) => {
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ history, plannerContext }),
+    });
+    if (!res.ok || !res.body) throw new Error("Failed");
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let reply = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const lines = decoder.decode(value).split("\n");
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const data = line.slice(6);
+        if (data === "[DONE]") break;
+        try { reply += JSON.parse(data); onChunk(reply); } catch {}
+      }
+    }
+    return reply;
+  }, [plannerContext]);
+
+  const runOnboardingMessage = useCallback(async (history: { role: "user" | "assistant"; content: string }[]) => {
+    setChatLoading(true);
+    let reply = "";
+    try {
+      const tempMessages = [...history, { role: "assistant" as const, content: "" }];
+      setChatMessages(tempMessages);
+      reply = await streamResponse("/api/onboard", history, (r) => {
+        setChatMessages([...history, { role: "assistant", content: cleanMessage(r) }]);
+      });
+      const parsed = parseOnboardingJSON(reply);
+      if (parsed) {
+        if (parsed.college) setCommunityCollege(parsed.college);
+        if (parsed.targetSchool) setTargetSchool(parsed.targetSchool);
+        if (parsed.major) setTargetMajor(parsed.major);
+        if (parsed.completedCourses) setCompletedCourses(parsed.completedCourses);
+        if (parsed.ready) {
+          setOnboardingDone(true);
+          setChatMode("advisor");
+          setTimeout(() => {
+            const btn = document.querySelector<HTMLButtonElement>('[data-generate-plan]');
+            btn?.click();
+          }, 500);
+        }
+      }
+      setChatMessages([...history, { role: "assistant", content: cleanMessage(reply) }]);
+    } catch {
+      setChatMessages([...history, { role: "assistant", content: "Something went wrong. Please try again." }]);
+    } finally {
+      setChatLoading(false);
+    }
+  }, [streamResponse]);
+
+  // Auto-start onboarding when chat opens for first time
+  useEffect(() => {
+    if (chatOpen && !onboardingStarted.current && chatMessages.length === 0) {
+      onboardingStarted.current = true;
+      runOnboardingMessage([]);
+    }
+  }, [chatOpen, chatMessages.length, runOnboardingMessage]);
+
   const sendChatMessage = useCallback(async (text?: string) => {
     const message = (text ?? chatInput).trim();
     if (!message || chatLoading) return;
     setChatInput("");
     const newHistory = [...chatMessages, { role: "user" as const, content: message }];
     setChatMessages(newHistory);
+
+    if (chatMode === "onboarding" && !onboardingDone) {
+      await runOnboardingMessage(newHistory);
+      return;
+    }
+
     setChatLoading(true);
-    let reply = "";
     try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, history: chatMessages, plannerContext }),
-      });
-      if (!res.ok || !res.body) throw new Error("Failed to reach Transfer AI");
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
       setChatMessages([...newHistory, { role: "assistant", content: "" }]);
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const lines = decoder.decode(value).split("\n");
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          const data = line.slice(6);
-          if (data === "[DONE]") break;
-          try {
-            reply += JSON.parse(data);
-            setChatMessages([...newHistory, { role: "assistant", content: reply }]);
-          } catch {}
-        }
-      }
+      const reply = await streamResponse("/api/chat", newHistory.map(m => ({ ...m, content: m.content })), (r) => {
+        setChatMessages([...newHistory, { role: "assistant", content: r }]);
+      });
+      setChatMessages([...newHistory, { role: "assistant", content: reply }]);
     } catch {
       setChatMessages([...newHistory, { role: "assistant", content: "Something went wrong. Please try again." }]);
     } finally {
       setChatLoading(false);
     }
-  }, [chatInput, chatMessages, chatLoading, plannerContext]);
+  }, [chatInput, chatMessages, chatLoading, chatMode, onboardingDone, runOnboardingMessage, streamResponse]);
 
   useEffect(() => {
     fetch('/data/assist_articulations.json')
@@ -1433,6 +1499,7 @@ export default function PlannerClient() {
 
               <button
                 type="button"
+                data-generate-plan
                 onClick={checkTransferPlan}
                 className="w-full rounded-2xl bg-[#0b7f46] px-5 py-4 text-lg font-bold text-white shadow-sm transition hover:bg-[#08683a]"
               >
@@ -1595,15 +1662,17 @@ export default function PlannerClient() {
       </section>
 
       {/* ── Transfer AI floating chat ─────────────────────────── */}
-      <button
-        onClick={() => setChatOpen(true)}
-        className="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full bg-[#0b7f46] px-5 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-[#08683a] active:scale-95"
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-        </svg>
-        Ask Transfer AI
-      </button>
+      {!chatOpen && (
+        <button
+          onClick={() => setChatOpen(true)}
+          className="fixed bottom-6 right-6 z-40 flex items-center gap-2 rounded-full bg-[#0b7f46] px-5 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-[#08683a] active:scale-95"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+          {onboardingDone ? "Ask Transfer AI" : "Build My Plan with AI"}
+        </button>
+      )}
 
       {chatOpen && (
         <div className="fixed inset-0 z-50 flex items-end justify-end p-4 sm:p-6 pointer-events-none">
@@ -1612,9 +1681,10 @@ export default function PlannerClient() {
             <div className="flex items-center justify-between rounded-t-2xl bg-[#0b7f46] px-4 py-3">
               <div>
                 <p className="font-bold text-white">Transfer AI</p>
-                {communityCollege && targetSchool && (
-                  <p className="text-xs text-white/80">{communityCollege} → {targetSchool}{targetMajor ? ` · ${targetMajor}` : ""}</p>
-                )}
+                {communityCollege && targetSchool
+                  ? <p className="text-xs text-white/80">{communityCollege} → {targetSchool}{targetMajor ? ` · ${targetMajor}` : ""}</p>
+                  : <p className="text-xs text-white/80">{onboardingDone ? "Ask me anything" : "Setting up your plan…"}</p>
+                }
               </div>
               <button onClick={() => setChatOpen(false)} className="rounded-full p-1 text-white/80 transition hover:bg-white/20 hover:text-white">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -1623,29 +1693,21 @@ export default function PlannerClient() {
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {chatMessages.length === 0 && (
-                <div className="space-y-2">
-                  <p className="text-sm text-[#7b818b]">
-                    {communityCollege && targetSchool
-                      ? `I can see your ${communityCollege} → ${targetSchool}${targetMajor ? ` (${targetMajor})` : ""} plan. Ask me anything about your transfer.`
-                      : "Set up your transfer plan above, then ask me anything about transferring to a UC."}
-                  </p>
-                  <div className="flex flex-wrap gap-2 pt-1">
-                    {(result ? [
-                      "What should I take next semester?",
-                      "How competitive is my GPA for this school?",
-                      "Tell me about TAG for my target UC",
-                    ] : [
-                      "What is IGETC?",
-                      "How does TAG work?",
-                      "What GPA do I need to transfer?",
-                    ]).map((q) => (
-                      <button key={q} onClick={() => sendChatMessage(q)}
-                        className="rounded-full border border-[#d8d0c3] bg-[#faf8f3] px-3 py-1 text-xs text-[#4d535c] transition hover:border-[#0b7f46] hover:text-[#0b7f46]">
-                        {q}
-                      </button>
-                    ))}
+              {chatMessages.length === 0 && chatLoading && (
+                <div className="flex justify-start">
+                  <div className="rounded-2xl border border-[#d8d0c3] bg-[#faf8f3] px-3 py-2 text-sm text-[#7b818b]">
+                    <span className="animate-pulse">Transfer AI is thinking…</span>
                   </div>
+                </div>
+              )}
+              {onboardingDone && chatMessages.length > 0 && (
+                <div className="flex flex-wrap gap-2 pb-1">
+                  {["What should I take next semester?", "How competitive is my GPA?", "Tell me about TAG"].map((q) => (
+                    <button key={q} onClick={() => sendChatMessage(q)}
+                      className="rounded-full border border-[#d8d0c3] bg-[#faf8f3] px-3 py-1 text-xs text-[#4d535c] transition hover:border-[#0b7f46] hover:text-[#0b7f46]">
+                      {q}
+                    </button>
+                  ))}
                 </div>
               )}
               {chatMessages.map((msg, i) => (
