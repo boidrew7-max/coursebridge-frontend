@@ -1104,6 +1104,7 @@ export default function PlannerClient() {
   const [wizardHonors, setWizardHonors] = useState<boolean | null>(null);
   const [wizardHasAp, setWizardHasAp] = useState<boolean | null>(null);
   const [wizardApCredits, setWizardApCredits] = useState("");
+  const [wizardHsMath, setWizardHsMath] = useState("");
   // ── Multi-school tabs ─────────────────────────────────────────
   const [planSchools, setPlanSchools] = useState<string[]>([]);
   const [activeSchoolTab, setActiveSchoolTab] = useState("");
@@ -1232,14 +1233,14 @@ export default function PlannerClient() {
     }
   }, [chatOpen, chatMessages.length, runOnboardingMessage, onboardingDone]);
 
-  async function generateAIPlan(college: string, school: string, major: string, courses: string, acceptHonors = true, apCredits = "") {
+  async function generateAIPlan(college: string, school: string, major: string, courses: string, acceptHonors = true, apCredits = "", hsMath = "") {
     setAiPlanLoading(true);
     setAiPlan("");
     try {
       const res = await fetch("/api/plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ college, school, major, completedCourses: courses, acceptHonors, apCredits }),
+        body: JSON.stringify({ college, school, major, completedCourses: courses, acceptHonors, apCredits, hsMath }),
       });
       if (!res.ok || !res.body) throw new Error("Plan request failed");
       const reader = res.body.getReader();
@@ -1280,7 +1281,7 @@ export default function PlannerClient() {
     setTimeout(() => {
       document.getElementById("planner")?.scrollIntoView({ behavior: "smooth" });
     }, 100);
-    generateAIPlan(wizardCollege, wizardUCs[0] ?? "", wizardMajor, courses, wizardHonors ?? true, wizardApCredits);
+    generateAIPlan(wizardCollege, wizardUCs[0] ?? "", wizardMajor, courses, wizardHonors ?? true, wizardApCredits, wizardHsMath);
   }
 
   const sendChatMessage = useCallback(async (text?: string) => {
@@ -1665,7 +1666,7 @@ export default function PlannerClient() {
                     setTargetSchool(school);
                     setActiveSchoolTab(school);
                     setResult(null);
-                    generateAIPlan(communityCollege, school, targetMajor, completedCourses, wizardHonors ?? true, wizardApCredits);
+                    generateAIPlan(communityCollege, school, targetMajor, completedCourses, wizardHonors ?? true, wizardApCredits, wizardHsMath);
                   }}
                   className={`rounded-full border px-4 py-2 text-sm font-semibold transition shadow-sm ${activeSchoolTab === school ? "border-[#0b7f46] bg-[#0b7f46] text-white shadow-[#0b7f46]/20" : "border-[#d8d0c3] bg-[#faf8f3] text-[#4d535c] hover:border-[#0b7f46] hover:bg-[#f0faf5] hover:text-[#0b7f46]"}`}>
                   {school}
@@ -2276,7 +2277,7 @@ export default function PlannerClient() {
                     <label className="flex items-center gap-3 cursor-pointer select-none">
                       <input type="checkbox" checked={wizardNoCourses} onChange={e => { setWizardNoCourses(e.target.checked); if (e.target.checked) setWizardCourses(""); }}
                         className="w-4 h-4 rounded accent-[#0b7f46]" />
-                      <span className="text-sm text-[#303236]">I haven't completed any classes yet</span>
+                      <span className="text-sm text-[#303236]">I haven't completed any college courses yet</span>
                     </label>
                     {!wizardNoCourses && (
                       <textarea
@@ -2287,6 +2288,18 @@ export default function PlannerClient() {
                         className="w-full rounded-2xl border border-[#d1c7b8] bg-[#faf8f3] px-4 py-3 text-sm text-[#303236] outline-none transition focus:border-[#0b7f46] focus:ring-4 focus:ring-[#0b7f46]/10 resize-none"
                         autoFocus
                       />
+                    )}
+                    {wizardNoCourses && (
+                      <div className="rounded-xl border border-[#d1c7b8] bg-[#faf8f3] px-4 py-3">
+                        <p className="text-sm font-medium text-[#303236] mb-2">Highest math completed in high school? <span className="text-[#7b818b] font-normal">(optional)</span></p>
+                        <input
+                          type="text"
+                          value={wizardHsMath}
+                          onChange={e => setWizardHsMath(e.target.value)}
+                          placeholder="e.g. Pre-Calculus, Algebra II, Calculus AB"
+                          className="w-full rounded-lg border border-[#d1c7b8] bg-white px-3 py-2 text-sm text-[#303236] outline-none transition focus:border-[#0b7f46] focus:ring-4 focus:ring-[#0b7f46]/10"
+                        />
+                      </div>
                     )}
                     {/* Honors preference */}
                     <div className="rounded-2xl border border-[#d1c7b8] bg-[#faf8f3] p-4">
