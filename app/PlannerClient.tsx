@@ -990,14 +990,14 @@ export default function PlannerClient() {
 
   // Parse |||JSON{...}||| blocks from AI onboarding responses
   function parseOnboardingJSON(text: string): { college: string; targetSchool: string; major: string; completedCourses: string; ready: boolean } | null {
-    const match = text.match(/\|\|\|JSON(\{.*?\})\|\|\|/s);
+    const match = text.match(/\|\|\|JSON(\{[\s\S]*?\})\|\|\|/);
     if (!match) return null;
     try { return JSON.parse(match[1]); } catch { return null; }
   }
 
   // Strip the JSON block from displayed message
   function cleanMessage(text: string): string {
-    return text.replace(/\|\|\|JSON\{.*?\}\|\|\|/s, "").trim();
+    return text.replace(/\|\|\|JSON\{[\s\S]*?\}\|\|\|/, "").trim();
   }
 
   const plannerContext = useMemo(() => ({
