@@ -1,9 +1,5 @@
 import type { NextConfig } from "next";
 
-const nextConfig: NextConfig = {
-  serverRuntimeConfig: {
-    TRANSFER_AI_URL: process.env.TRANSFER_AI_URL,
-  },
-};
+const nextConfig: NextConfig = {};
 
 export default nextConfig;

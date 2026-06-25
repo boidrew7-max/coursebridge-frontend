@@ -1,16 +1,12 @@
 import { NextResponse } from "next/server";
-import getConfig from "next/config";
-
-function getTransferAIUrl(): string {
-  const { serverRuntimeConfig } = getConfig() || {};
-  return serverRuntimeConfig?.TRANSFER_AI_URL || process.env.TRANSFER_AI_URL || "http://localhost:5001";
-}
 
 export async function POST(req: Request) {
+  const TRANSFER_AI_URL = process.env.TRANSFER_AI_URL || "http://localhost:5001";
+  console.log("[chat] TRANSFER_AI_URL =", TRANSFER_AI_URL);
+
   try {
     const body = await req.json();
 
-    const TRANSFER_AI_URL = getTransferAIUrl();
     const upstream = await fetch(`${TRANSFER_AI_URL}/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -24,7 +20,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // Stream the SSE response straight through to the browser
     return new Response(upstream.body, {
       headers: {
         "Content-Type": "text/event-stream",
