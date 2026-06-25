@@ -1239,18 +1239,20 @@ Already completed courses (DO NOT include these anywhere in the schedule): ${com
 
 Output format — use exactly these headers, nothing before them:
 ## Term 1 (Fall)
-- COURSE# — Full Course Title (X units)
+- COURSE# — Full Course Title as listed at ${college} (X units)
 
 ## Term 2 (Spring)
-- COURSE# — Full Course Title (X units)
+- COURSE# — Full Course Title as listed at ${college} (X units)
 
 ## Term 3 (Fall)
-- COURSE# — Full Course Title (X units)
+- COURSE# — Full Course Title as listed at ${college} (X units)
 
 ## Term 4 (Spring)
-- COURSE# — Full Course Title (X units)
+- COURSE# — Full Course Title as listed at ${college} (X units)
 
-Example of correct format: "MATH 16A — Calculus for Business (4 units)"
+Example of correct format: "MATH 16A — Calculus for Business and Social Science (4 units)"
+
+CRITICAL: Every course listed must be a course offered at ${college}, not at ${school}. The student takes classes at ${college} — these community college courses articulate to satisfy ${school} requirements. Never list a ${school} course number. Only list courses the student would actually enroll in at ${college}.
 
 ## Key Notes
 - TAG: [eligible or not and why]
