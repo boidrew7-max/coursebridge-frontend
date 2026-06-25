@@ -2,16 +2,23 @@ import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   const TRANSFER_AI_URL = process.env.TRANSFER_AI_URL || "https://course-bridge-ai.fly.dev";
+
   try {
     const body = await req.json();
-    const upstream = await fetch(`${TRANSFER_AI_URL}/onboard`, {
+
+    const upstream = await fetch(`${TRANSFER_AI_URL}/plan`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
+
     if (!upstream.ok) {
-      return NextResponse.json({ error: "Transfer AI service unavailable" }, { status: 502 });
+      return NextResponse.json(
+        { error: "Transfer AI service unavailable" },
+        { status: 502 }
+      );
     }
+
     return new Response(upstream.body, {
       headers: {
         "Content-Type": "text/event-stream",
@@ -20,7 +27,10 @@ export async function POST(req: Request) {
       },
     });
   } catch (err) {
-    console.error("Onboard proxy error:", err);
-    return NextResponse.json({ error: "Failed to reach Transfer AI service" }, { status: 502 });
+    console.error("Plan proxy error:", err);
+    return NextResponse.json(
+      { error: "Failed to reach Transfer AI service" },
+      { status: 502 }
+    );
   }
 }

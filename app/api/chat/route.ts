@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
-  const TRANSFER_AI_URL = process.env.TRANSFER_AI_URL || "http://localhost:5001";
+  const TRANSFER_AI_URL = process.env.TRANSFER_AI_URL || "https://course-bridge-ai.fly.dev";
   console.log("[chat] TRANSFER_AI_URL =", TRANSFER_AI_URL);
 
   try {
