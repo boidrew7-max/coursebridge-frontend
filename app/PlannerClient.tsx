@@ -1102,6 +1102,8 @@ export default function PlannerClient() {
   const [wizardCourses, setWizardCourses] = useState("");
   const [wizardNoCourses, setWizardNoCourses] = useState(false);
   const [wizardHonors, setWizardHonors] = useState<boolean | null>(null);
+  const [wizardHasAp, setWizardHasAp] = useState<boolean | null>(null);
+  const [wizardApCredits, setWizardApCredits] = useState("");
   // ── Multi-school tabs ─────────────────────────────────────────
   const [planSchools, setPlanSchools] = useState<string[]>([]);
   const [activeSchoolTab, setActiveSchoolTab] = useState("");
@@ -1230,14 +1232,14 @@ export default function PlannerClient() {
     }
   }, [chatOpen, chatMessages.length, runOnboardingMessage, onboardingDone]);
 
-  async function generateAIPlan(college: string, school: string, major: string, courses: string, acceptHonors = true) {
+  async function generateAIPlan(college: string, school: string, major: string, courses: string, acceptHonors = true, apCredits = "") {
     setAiPlanLoading(true);
     setAiPlan("");
     try {
       const res = await fetch("/api/plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ college, school, major, completedCourses: courses, acceptHonors }),
+        body: JSON.stringify({ college, school, major, completedCourses: courses, acceptHonors, apCredits }),
       });
       if (!res.ok || !res.body) throw new Error("Plan request failed");
       const reader = res.body.getReader();
@@ -1278,7 +1280,7 @@ export default function PlannerClient() {
     setTimeout(() => {
       document.getElementById("planner")?.scrollIntoView({ behavior: "smooth" });
     }, 100);
-    generateAIPlan(wizardCollege, wizardUCs[0] ?? "", wizardMajor, courses, wizardHonors ?? true);
+    generateAIPlan(wizardCollege, wizardUCs[0] ?? "", wizardMajor, courses, wizardHonors ?? true, wizardApCredits);
   }
 
   const sendChatMessage = useCallback(async (text?: string) => {
@@ -1663,7 +1665,7 @@ export default function PlannerClient() {
                     setTargetSchool(school);
                     setActiveSchoolTab(school);
                     setResult(null);
-                    generateAIPlan(communityCollege, school, targetMajor, completedCourses, wizardHonors ?? true);
+                    generateAIPlan(communityCollege, school, targetMajor, completedCourses, wizardHonors ?? true, wizardApCredits);
                   }}
                   className={`rounded-full border px-4 py-2 text-sm font-semibold transition shadow-sm ${activeSchoolTab === school ? "border-[#0b7f46] bg-[#0b7f46] text-white shadow-[#0b7f46]/20" : "border-[#d8d0c3] bg-[#faf8f3] text-[#4d535c] hover:border-[#0b7f46] hover:bg-[#f0faf5] hover:text-[#0b7f46]"}`}>
                   {school}
@@ -2301,9 +2303,33 @@ export default function PlannerClient() {
                       </div>
                     </div>
 
+                    {/* AP credit */}
+                    <div className="rounded-2xl border border-[#d1c7b8] bg-[#faf8f3] p-4">
+                      <p className="text-sm font-semibold text-[#303236] mb-3">Do you have any AP exam credit?</p>
+                      <div className="flex gap-3 mb-3">
+                        <button onClick={() => setWizardHasAp(true)}
+                          className={`flex-1 rounded-xl py-2.5 text-sm font-semibold transition border ${wizardHasAp === true ? "bg-[#0b7f46] text-white border-[#0b7f46]" : "bg-white text-[#303236] border-[#d1c7b8] hover:border-[#0b7f46]"}`}>
+                          Yes
+                        </button>
+                        <button onClick={() => { setWizardHasAp(false); setWizardApCredits(""); }}
+                          className={`flex-1 rounded-xl py-2.5 text-sm font-semibold transition border ${wizardHasAp === false ? "bg-[#0b7f46] text-white border-[#0b7f46]" : "bg-white text-[#303236] border-[#d1c7b8] hover:border-[#0b7f46]"}`}>
+                          No
+                        </button>
+                      </div>
+                      {wizardHasAp === true && (
+                        <textarea
+                          value={wizardApCredits}
+                          onChange={e => setWizardApCredits(e.target.value)}
+                          placeholder="e.g. AP Calculus AB (score 4), AP English Language (score 5)"
+                          rows={2}
+                          className="w-full rounded-xl border border-[#d1c7b8] bg-white px-3 py-2 text-sm text-[#303236] outline-none transition focus:border-[#0b7f46] focus:ring-4 focus:ring-[#0b7f46]/10 resize-none"
+                        />
+                      )}
+                    </div>
+
                     <div className="flex justify-between items-center pt-2">
                       <button onClick={() => setWizardStep(3)} className="text-sm text-[#7b818b] transition hover:text-[#303236]">← Back</button>
-                      <button onClick={completeWizard} disabled={(!wizardNoCourses && !wizardCourses.trim()) || wizardHonors === null}
+                      <button onClick={completeWizard} disabled={(!wizardNoCourses && !wizardCourses.trim()) || wizardHonors === null || wizardHasAp === null || (wizardHasAp === true && !wizardApCredits.trim())}
                         className="rounded-2xl bg-[#0b7f46] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#08683a] disabled:opacity-40">
                         Build My Plan →
                       </button>
