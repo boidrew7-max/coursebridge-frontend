@@ -1492,7 +1492,8 @@ export default function PlannerClient() {
             <img
               src="/coursebridge-logo.png"
               alt="CourseBridge logo"
-              className="h-14 w-auto mix-blend-multiply sm:h-20 md:h-28 shrink-0"
+              className="h-[50px] w-auto shrink-0"
+              style={{mixBlendMode:"multiply",background:"transparent"}}
             />
             <p className="text-sm leading-tight text-[#7b818b] sm:text-base md:text-xl">
               Transfer planning for community college students
@@ -1513,30 +1514,47 @@ export default function PlannerClient() {
               Built around real transfer planning problems
             </p>
 
-            <h1 className="max-w-3xl text-3xl font-bold leading-tight tracking-tight text-[#303236] sm:text-4xl md:text-5xl lg:text-6xl">
+            <h1
+              className="max-w-3xl text-3xl font-bold leading-tight tracking-tight sm:text-4xl md:text-5xl lg:text-6xl"
+              style={{background:"linear-gradient(135deg,#1a2e22 0%,#0b7f46 65%,#0fa85a 100%)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent",backgroundClip:"text"}}
+            >
               Know exactly what classes you need before you transfer.
             </h1>
 
             <p className="mt-5 max-w-2xl text-lg leading-8 text-[#6f7680]">
               CourseBridge helps community college students plan UC
-              transfer requirements using their completed courses, target
-              school, and major.
+              transfer requirements using real ASSIST data — personalized to
+              your college, major, and target campus.
             </p>
 
             <div className="mt-7 flex flex-col gap-3 sm:flex-row">
               <a
                 href="#planner"
-                className="rounded-xl bg-[#0b7f46] px-5 py-3 text-center font-semibold text-white shadow-sm transition hover:bg-[#08683a]"
+                className="rounded-xl bg-[#0b7f46] px-5 py-3 text-center font-semibold text-white shadow-sm transition hover:bg-[#08683a] hover:shadow-md"
               >
                 Build My Transfer Plan
               </a>
 
               <a
                 href="#example"
-                className="rounded-xl border border-[#d1c7b8] bg-[#faf8f3] px-5 py-3 text-center font-semibold text-[#303236] transition hover:bg-white"
+                className="rounded-xl border border-[#d1c7b8] bg-[#faf8f3] px-5 py-3 text-center font-semibold text-[#303236] transition hover:bg-white hover:border-[#0b7f46]"
               >
                 See Example Plan
               </a>
+            </div>
+
+            <div className="mt-10 flex flex-wrap gap-8 border-t border-[#d8d0c3] pt-7">
+              {[
+                { n: "116", label: "Community Colleges" },
+                { n: "57K+", label: "Courses indexed" },
+                { n: "9", label: "UC campuses" },
+                { n: "121K+", label: "Articulation agreements" },
+              ].map(s => (
+                <div key={s.label}>
+                  <p className="text-2xl font-bold text-[#0b7f46]">{s.n}</p>
+                  <p className="text-xs text-[#7b818b] mt-0.5">{s.label}</p>
+                </div>
+              ))}
             </div>
 
             <div className="mt-10 grid gap-3 sm:grid-cols-2">
@@ -1620,19 +1638,22 @@ export default function PlannerClient() {
 
         {/* ── School tabs ─────────────────────────────────────── */}
         {planSchools.length > 1 && (
-          <div className="mt-16 flex flex-wrap gap-2">
-            {planSchools.map(school => (
-              <button key={school}
-                onClick={() => {
-                  setTargetSchool(school);
-                  setActiveSchoolTab(school);
-                  setResult(null);
-                  generateAIPlan(communityCollege, school, targetMajor, completedCourses);
-                }}
-                className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${activeSchoolTab === school ? "border-[#0b7f46] bg-[#0b7f46] text-white" : "border-[#d8d0c3] bg-[#faf8f3] text-[#4d535c] hover:border-[#0b7f46] hover:text-[#0b7f46]"}`}>
-                {school}
-              </button>
-            ))}
+          <div className="mt-16 rounded-2xl border border-[#d8d0c3] bg-white px-5 py-4 shadow-sm">
+            <p className="text-xs font-bold uppercase tracking-widest text-[#7b818b] mb-3">Your target schools</p>
+            <div className="flex flex-wrap gap-2">
+              {planSchools.map(school => (
+                <button key={school}
+                  onClick={() => {
+                    setTargetSchool(school);
+                    setActiveSchoolTab(school);
+                    setResult(null);
+                    generateAIPlan(communityCollege, school, targetMajor, completedCourses);
+                  }}
+                  className={`rounded-full border px-4 py-2 text-sm font-semibold transition shadow-sm ${activeSchoolTab === school ? "border-[#0b7f46] bg-[#0b7f46] text-white shadow-[#0b7f46]/20" : "border-[#d8d0c3] bg-[#faf8f3] text-[#4d535c] hover:border-[#0b7f46] hover:bg-[#f0faf5] hover:text-[#0b7f46]"}`}>
+                  {school}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -1641,38 +1662,54 @@ export default function PlannerClient() {
           className={`${planSchools.length > 1 ? "mt-4" : "mt-16"} grid gap-6 lg:grid-cols-[0.72fr_1.28fr]`}
         >
           {/* Left panel: summary after wizard, form before */}
-          <div className="rounded-3xl border border-[#d8d0c3] bg-[#faf8f3] p-6 shadow-[0_18px_45px_rgba(67,54,36,0.08)]">
+          <div className="rounded-3xl border border-[#d8d0c3] bg-[#faf8f3] shadow-[0_18px_45px_rgba(67,54,36,0.08)] overflow-hidden">
             {onboardingDone ? (
-              <div className="flex flex-col gap-5">
-                <h2 className="text-2xl font-bold text-[#303236]">Your Profile</h2>
-                <div className="space-y-3">
-                  {[
-                    { label: "Community College", value: communityCollege },
-                    { label: "Target School(s)", value: planSchools.length > 1 ? planSchools.join(", ") : targetSchool },
-                    { label: "Major", value: targetMajor },
-                    { label: "Completed Courses", value: completedCourses || "None yet" },
-                  ].map(({ label, value }) => (
-                    <div key={label} className="rounded-2xl border border-[#d8d0c3] bg-white px-4 py-3">
-                      <p className="text-xs font-semibold text-[#7b818b] mb-1">{label}</p>
-                      <p className="text-sm text-[#303236]">{value || "—"}</p>
+              <div className="flex flex-col">
+                {/* Green gradient header */}
+                <div className="bg-gradient-to-br from-[#0a6e3d] to-[#0d9456] px-6 pt-6 pb-5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 rounded-2xl bg-white/20 flex items-center justify-center text-white font-bold text-lg shrink-0">
+                      {(communityCollege || "?").slice(0,1).toUpperCase()}
                     </div>
-                  ))}
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-white/60 uppercase tracking-widest">Your Profile</p>
+                      <p className="text-base font-bold text-white truncate">{communityCollege || "—"}</p>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {(planSchools.length > 1 ? planSchools : [targetSchool]).filter(Boolean).map(s => (
+                      <span key={s} className="rounded-full bg-white/20 px-3 py-1 text-xs font-semibold text-white">{s}</span>
+                    ))}
+                    {targetMajor && <span className="rounded-full bg-white/10 border border-white/20 px-3 py-1 text-xs text-white/80">{targetMajor}</span>}
+                  </div>
                 </div>
-                <button
-                  onClick={() => { setOnboardingDone(false); setWizardStep(1); setAiPlan(""); setPlanSchools([]); }}
-                  className="w-full rounded-2xl border border-[#d8d0c3] bg-white px-4 py-3 text-sm font-semibold text-[#7b818b] transition hover:border-[#0b7f46] hover:text-[#0b7f46]"
-                >
-                  Edit my info
-                </button>
-                <button
-                  type="button"
-                  data-generate-plan
-                  onClick={checkTransferPlan}
-                  className="hidden"
-                />
+                <div className="p-5 flex flex-col gap-4">
+                  <div className="space-y-2">
+                    {[
+                      { label: "Completed Courses", value: completedCourses || "None yet" },
+                    ].map(({ label, value }) => (
+                      <div key={label} className="rounded-2xl border border-[#d8d0c3] bg-white px-4 py-3">
+                        <p className="text-xs font-semibold text-[#7b818b] mb-1">{label}</p>
+                        <p className="text-sm text-[#303236] break-words">{value || "—"}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => { setOnboardingDone(false); setWizardStep(1); setAiPlan(""); setPlanSchools([]); }}
+                    className="w-full rounded-2xl border border-[#d8d0c3] bg-white px-4 py-3 text-sm font-semibold text-[#7b818b] transition hover:border-[#0b7f46] hover:text-[#0b7f46]"
+                  >
+                    Edit my info
+                  </button>
+                  <button
+                    type="button"
+                    data-generate-plan
+                    onClick={checkTransferPlan}
+                    className="hidden"
+                  />
+                </div>
               </div>
             ) : (
-              <>
+              <div className="p-6">
                 <h2 className="text-3xl font-bold text-[#303236]">Build your plan</h2>
                 <p className="mt-3 text-base leading-7 text-[#7b818b]">Major prep comes first.</p>
                 <form className="mt-8 space-y-5">
@@ -1694,38 +1731,62 @@ export default function PlannerClient() {
                     Generate Plan
                   </button>
                 </form>
-              </>
+              </div>
             )}
           </div>
 
-          <div className="rounded-3xl border border-[#d8d0c3] bg-[#faf8f3] p-6 shadow-[0_18px_45px_rgba(67,54,36,0.08)]">
+          <div className="rounded-3xl border border-[#d8d0c3] bg-[#faf8f3] shadow-[0_18px_45px_rgba(67,54,36,0.08)] overflow-hidden">
             {/* AI-generated plan from Flask backend */}
             {(aiPlanLoading || aiPlan) && (
-              <div className="mb-6 print-plan">
-                <div className="flex items-center gap-2 mb-3 flex-wrap">
-                  <span className="text-xs font-bold uppercase tracking-widest text-[#0b7f46]">Transfer AI Plan</span>
-                  {aiPlanLoading && <span className="text-xs text-[#7b818b] animate-pulse">generating…</span>}
-                  {aiPlan && !aiPlanLoading && (
-                    <button
-                      onClick={() => window.print()}
-                      className="ml-auto rounded-lg border border-[#d8d0c3] px-3 py-1 text-xs text-[#7b818b] transition hover:border-[#0b7f46] hover:text-[#0b7f46] print:hidden"
-                    >
-                      Print / Save PDF
-                    </button>
+              <div className="print-plan">
+                {/* Green gradient header */}
+                <div className="bg-gradient-to-br from-[#0a6e3d] via-[#0b7f46] to-[#0d9456] px-6 pt-6 pb-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold uppercase tracking-widest text-white/60 mb-1">Transfer AI Plan</p>
+                      <h3 className="text-xl font-bold text-white truncate">{activeSchoolTab || targetSchool || "Your UC"}</h3>
+                      {targetMajor && <p className="text-sm text-white/75 mt-0.5">{targetMajor}</p>}
+                    </div>
+                    {aiPlan && !aiPlanLoading && (
+                      <button
+                        onClick={() => window.print()}
+                        className="shrink-0 rounded-xl bg-white/20 hover:bg-white/30 px-3 py-2 text-xs font-semibold text-white transition print:hidden"
+                      >
+                        Print / PDF
+                      </button>
+                    )}
+                  </div>
+                  {aiPlanLoading && (
+                    <div className="mt-3 flex items-center gap-1.5">
+                      {[0, 150, 300].map(d => (
+                        <div key={d} className="w-2 h-2 rounded-full bg-white/70 animate-bounce" style={{animationDelay:`${d}ms`}} />
+                      ))}
+                      <span className="ml-2 text-xs text-white/60">Building your plan…</span>
+                    </div>
                   )}
                 </div>
-                <div className="rounded-2xl border border-[#d8d0c3] bg-white p-4 text-sm text-[#303236]">
-                  {aiPlan
-                    ? <SimpleMarkdown text={aiPlan} />
-                    : <span className="text-[#a2a7af] animate-pulse">Transfer AI is building your personalized plan…</span>}
+                <div className="p-6 space-y-4">
+                  <div className="rounded-2xl border border-[#d8d0c3] bg-white p-4 text-sm text-[#303236]">
+                    {aiPlan
+                      ? <SimpleMarkdown text={aiPlan} />
+                      : (
+                        <div className="space-y-3 animate-pulse">
+                          {[80,60,90,50,70].map((w,i) => (
+                            <div key={i} className="h-3 rounded-full bg-[#e8e3da]" style={{width:`${w}%`}} />
+                          ))}
+                        </div>
+                      )}
+                  </div>
+                  {aiPlan && activeSchoolTab && <UCStatsPanel school={activeSchoolTab} />}
                 </div>
-                {aiPlan && activeSchoolTab && <UCStatsPanel school={activeSchoolTab} />}
               </div>
             )}
-            {!result && !aiPlan && !aiPlanLoading && <EmptyDashboard />}
+            {!result && !aiPlan && !aiPlanLoading && (
+              <div className="p-6"><EmptyDashboard /></div>
+            )}
 
             {result?.error && (
-              <div className="rounded-2xl border border-[#ef9a9a] bg-[#fff0f0] p-6">
+              <div className="m-6 rounded-2xl border border-[#ef9a9a] bg-[#fff0f0] p-6">
                 <h3 className="text-xl font-bold text-[#9b1c1c]">
                   {result.error}
                 </h3>
@@ -1735,7 +1796,7 @@ export default function PlannerClient() {
             )}
 
             {result && !result.error && (
-              <div>
+              <div className="p-6">
                 <div className="flex flex-col gap-4 border-b border-[#d8d0c3] pb-5 md:flex-row md:items-start md:justify-between">
                   <div>
                     <p className="text-sm font-semibold text-[#7b818b]">
@@ -1900,7 +1961,7 @@ export default function PlannerClient() {
                   <div className="rounded-xl bg-[#faf8f3] border border-[#d8d0c3] p-3">
                     <p className="text-xs font-bold text-[#303236] mb-1">TAG Requirements (all UCs)</p>
                     <ul className="text-xs text-[#6f7680] space-y-1 list-disc pl-4">
-                      <li>Complete 30+ semester transferable units before transfer</li>
+                      <li>Complete 60 semester transferable units by end of spring before transfer</li>
                       <li>Meet the campus minimum TAG GPA (see above)</li>
                       <li>Complete IGETC or campus GE pattern (varies by campus)</li>
                       <li>Apply via UC TAG portal: Sept 1–30 each year</li>
@@ -2067,23 +2128,47 @@ export default function PlannerClient() {
         const steps = ["College","Target UCs","Major","Courses"];
         const toggleUC = (uc: string) => setWizardUCs(prev => prev.includes(uc) ? prev.filter(u => u !== uc) : [...prev, uc]);
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
             <div className="w-full max-w-lg rounded-3xl bg-white shadow-2xl overflow-hidden">
-              {/* Progress bar */}
-              <div className="flex">
-                {steps.map((_, i) => (
-                  <div key={i} className={`h-1 flex-1 transition-all duration-300 ${i < wizardStep ? "bg-[#0b7f46]" : "bg-[#e5e7eb]"}`} />
-                ))}
+
+              {/* Green gradient header */}
+              <div className="bg-gradient-to-br from-[#0a6e3d] to-[#0d9456] px-8 pt-7 pb-6">
+                {/* Step circles */}
+                <div className="flex items-center gap-2 mb-5">
+                  {steps.map((label, i) => (
+                    <div key={i} className="flex items-center gap-2 flex-1">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-all duration-300 ${
+                        i < wizardStep - 1 ? "bg-white text-[#0b7f46]" :
+                        i === wizardStep - 1 ? "bg-white text-[#0b7f46] ring-4 ring-white/25" :
+                        "bg-white/15 text-white/50"
+                      }`}>
+                        {i < wizardStep - 1 ? "✓" : i + 1}
+                      </div>
+                      <span className={`hidden sm:block text-xs font-semibold truncate transition-all duration-300 ${i === wizardStep - 1 ? "text-white" : "text-white/40"}`}>{label}</span>
+                      {i < steps.length - 1 && (
+                        <div className={`flex-1 h-0.5 rounded-full transition-all duration-300 ${i < wizardStep - 1 ? "bg-white/60" : "bg-white/20"}`} />
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <h2 className="text-2xl font-bold text-white">
+                  {wizardStep === 1 ? "Where do you go to school?" :
+                   wizardStep === 2 ? "Which UCs are you targeting?" :
+                   wizardStep === 3 ? "What do you want to study?" :
+                   "What courses have you completed?"}
+                </h2>
+                <p className="mt-1.5 text-sm text-white/70">
+                  {wizardStep === 1 ? "Enter your California community college" :
+                   wizardStep === 2 ? "Select all that apply — we'll build a plan for each" :
+                   wizardStep === 3 ? "Enter your intended major" :
+                   "List them in plain text — don't worry about formatting"}
+                </p>
               </div>
-              <div className="p-8">
+
+              <div className="p-7">
                 {/* Step 1 — College */}
                 {wizardStep === 1 && (
-                  <div className="flex flex-col gap-5">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-widest text-[#0b7f46]">Step 1 of 4</p>
-                      <h2 className="mt-1 text-2xl font-bold text-[#303236]">Where do you go to school?</h2>
-                      <p className="mt-1 text-sm text-[#7b818b]">Enter your California community college</p>
-                    </div>
+                  <div className="flex flex-col gap-4">
                     <input
                       list="cc-list"
                       value={wizardCollege}
@@ -2114,12 +2199,7 @@ export default function PlannerClient() {
                 )}
                 {/* Step 2 — Target UCs (multi-select) */}
                 {wizardStep === 2 && (
-                  <div className="flex flex-col gap-5">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-widest text-[#0b7f46]">Step 2 of 4</p>
-                      <h2 className="mt-1 text-2xl font-bold text-[#303236]">Which UCs are you considering?</h2>
-                      <p className="mt-1 text-sm text-[#7b818b]">Select all that apply — we'll build a plan for each</p>
-                    </div>
+                  <div className="flex flex-col gap-4">
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                       {UC_OPTIONS.map(uc => (
                         <button key={uc} onClick={() => toggleUC(uc)}
@@ -2142,12 +2222,7 @@ export default function PlannerClient() {
                 )}
                 {/* Step 3 — Major */}
                 {wizardStep === 3 && (
-                  <div className="flex flex-col gap-5">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-widest text-[#0b7f46]">Step 3 of 4</p>
-                      <h2 className="mt-1 text-2xl font-bold text-[#303236]">What do you want to study?</h2>
-                      <p className="mt-1 text-sm text-[#7b818b]">Enter your intended major</p>
-                    </div>
+                  <div className="flex flex-col gap-4">
                     <input
                       list="major-list"
                       value={wizardMajor}
@@ -2179,12 +2254,7 @@ export default function PlannerClient() {
                 )}
                 {/* Step 4 — Courses */}
                 {wizardStep === 4 && (
-                  <div className="flex flex-col gap-5">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-widest text-[#0b7f46]">Step 4 of 4</p>
-                      <h2 className="mt-1 text-2xl font-bold text-[#303236]">What courses have you finished?</h2>
-                      <p className="mt-1 text-sm text-[#7b818b]">List them in plain text — don't worry about formatting</p>
-                    </div>
+                  <div className="flex flex-col gap-4">
                     <label className="flex items-center gap-3 cursor-pointer select-none">
                       <input type="checkbox" checked={wizardNoCourses} onChange={e => { setWizardNoCourses(e.target.checked); if (e.target.checked) setWizardCourses(""); }}
                         className="w-4 h-4 rounded accent-[#0b7f46]" />
