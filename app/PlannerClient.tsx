@@ -1269,7 +1269,7 @@ STRICT RULES — violating any of these is an error:
 
 4. LOAD: 4–5 courses per term (13–17 units). Do not exceed this.
 
-5. COURSE NUMBERS: Only use a specific course number (e.g. MATH 16A) if you have verified ASSIST articulation data for ${college}. If uncertain, write the requirement name only (e.g. "Microeconomics — verify on ASSIST.org").
+5. COURSE TITLES: You will receive official catalog data in your context labeled "OFFICIAL CATALOG DATA." Every course title you write MUST come from that data exactly as listed. Never use a title from your training knowledge. If a course isn't in the catalog data, write: "COURSE# — verify official title at ${college}" and do not guess the title.
 
 6. NO PREAMBLE: Start your response directly with "## Term 1 (Fall)". No greeting, no intro paragraph.`;
     try {
