@@ -1232,59 +1232,34 @@ export default function PlannerClient() {
   async function generateAIPlan(college: string, school: string, major: string, courses: string) {
     setAiPlanLoading(true);
     setAiPlan("");
-    const completedList = courses.trim() ? courses : "none";
-    const message = `Build a 2-year transfer schedule for a student at ${college} transferring to ${school} for ${major}.
-
-Already completed (exclude entirely from schedule): ${completedList}
-
-═══ STEP 1 — IDENTIFY MAJOR PREP FIRST ═══
-Before building the schedule, look at the ARTICULATION AGREEMENT DATA in your context for ${school} ${major}.
-List the specific lower-division major preparation courses that ${school} requires for ${major}.
-These are non-negotiable. The schedule MUST include all of them.
-
-For Economics majors this typically means: the correct calculus series (NOT business calc unless the agreement specifically shows it), microeconomics, macroeconomics, and statistics. Use what the articulation data shows — do not guess.
-
-═══ STEP 2 — MATCH TO ${college} CATALOG ═══
-For each major prep requirement, find the matching ${college} course in the OFFICIAL CATALOG DATA.
-Use the exact course number and title from that data. Do not substitute.
-
-═══ STEP 3 — BUILD THE SCHEDULE ═══
-Place major prep courses in the correct prerequisite order across 4 terms. Fill remaining units with IGETC/GE courses from ${college}.
-
-Output using exactly these headers (start directly with ## Term 1, no preamble):
-
-## Term 1 (Fall)
-- COURSE# — Official Title from ${college} catalog (X units)
-
-## Term 2 (Spring)
-- COURSE# — Official Title from ${college} catalog (X units)
-
-## Term 3 (Fall)
-- COURSE# — Official Title from ${college} catalog (X units)
-
-## Term 4 (Spring)
-- COURSE# — Official Title from ${college} catalog (X units)
-
-## Key Notes
-- Major prep: [list the ${school} requirements and which ${college} courses cover them]
-- TAG: [eligible/not and why]
-- IGETC: [complete or partial]
-- GPA target: [number]
-
-RULES:
-1. PREREQUISITES: A course and its prerequisite can NEVER be in the same term.
-2. COMPLETED: Never include already-completed courses anywhere.
-3. LOAD: 4–5 courses per term (13–17 units max).
-4. TITLES: Every title comes from OFFICIAL CATALOG DATA. If not found, write "COURSE# — verify at ${college}".
-5. CC ONLY: Every course must be from ${college}. Never list ${school} course numbers.`;
     try {
-      await streamResponse("/api/chat", [{ role: "user", content: message }], (r) => {
-        // Strip the model-switch notice from the displayed output
-        const cleaned = r.replace(/\[Note: switching to faster model[^\]]*\]/g, "").trimStart();
-        setAiPlan(cleaned);
+      const res = await fetch("/api/plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ college, school, major, completedCourses: courses }),
       });
+      if (!res.ok || !res.body) throw new Error("Plan request failed");
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulated = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const text = decoder.decode(value, { stream: true });
+        for (const line of text.split("\n")) {
+          if (!line.startsWith("data: ")) continue;
+          const payload = line.slice(6).trim();
+          if (payload === "[DONE]") break;
+          try {
+            const chunk = JSON.parse(payload);
+            accumulated += chunk;
+            const cleaned = accumulated.replace(/\[Note: switching to faster model[^\]]*\]/g, "").trimStart();
+            setAiPlan(cleaned);
+          } catch {}
+        }
+      }
     } catch {
-      setAiPlan("Something went wrong generating your plan. Try asking the AI chat directly.");
+      setAiPlan("Something went wrong generating your plan. Try asking Transfer AI directly.");
     } finally {
       setAiPlanLoading(false);
     }
