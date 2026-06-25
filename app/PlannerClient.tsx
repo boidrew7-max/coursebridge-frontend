@@ -1433,8 +1433,19 @@ export default function PlannerClient() {
 
         <section
           id="planner"
-          className="mt-16 grid gap-6 lg:grid-cols-[0.72fr_1.28fr]"
+          className="relative mt-16 grid gap-6 lg:grid-cols-[0.72fr_1.28fr]"
         >
+          {!onboardingDone && (
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-3xl bg-white/80 backdrop-blur-sm">
+              <p className="text-lg font-semibold text-[#303236]">Chat with the AI first to unlock your plan</p>
+              <button
+                onClick={() => setChatOpen(true)}
+                className="mt-4 rounded-full bg-[#0b7f46] px-6 py-3 text-sm font-semibold text-white shadow hover:bg-[#08683a]"
+              >
+                Build My Plan with AI →
+              </button>
+            </div>
+          )}
           <div className="rounded-3xl border border-[#d8d0c3] bg-[#faf8f3] p-6 shadow-[0_18px_45px_rgba(67,54,36,0.08)]">
             <h2 className="text-3xl font-bold text-[#303236]">
               Build your plan
