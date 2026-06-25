@@ -958,6 +958,123 @@ function buildRequirementOptions(database: RequirementDatabase) {
   return { colleges, targetsByCollege, majorsByCollegeAndTarget };
 }
 
+// ── Static data ────────────────────────────────────────────────────────────
+
+const UC_STATS: Record<string, { rate: string; gpa: string; tag: boolean; tagGPA?: string }> = {
+  "UCLA":              { rate: "22.7%", gpa: "3.5–3.9", tag: false },
+  "UC Berkeley":       { rate: "24%",   gpa: "3.5–3.9", tag: false },
+  "UC San Diego":      { rate: "52.7%", gpa: "3.55–3.94", tag: false },
+  "UC Irvine":         { rate: "39.5%", gpa: "3.4–3.7", tag: true,  tagGPA: "3.4" },
+  "UC Santa Barbara":  { rate: "58.9%", gpa: "3.4–3.7", tag: true,  tagGPA: "3.2" },
+  "UC Davis":          { rate: "57%",   gpa: "3.4–3.7", tag: true,  tagGPA: "3.2" },
+  "UC Santa Cruz":     { rate: "68.8%", gpa: "3.3–3.6", tag: true,  tagGPA: "2.8" },
+  "UC Riverside":      { rate: "68.2%", gpa: "3.0–3.5", tag: true,  tagGPA: "2.8" },
+  "UC Merced":         { rate: "72.1%", gpa: "3.0–3.4", tag: true,  tagGPA: "2.4" },
+};
+
+const IGETC_AREAS = [
+  { id: "1a", area: "1A", title: "English Composition", detail: "1 course (e.g. English 1A)" },
+  { id: "1b", area: "1B", title: "Critical Thinking / Composition", detail: "1 course" },
+  { id: "1c", area: "1C", title: "Oral Communication", detail: "1 course (CSU only)" },
+  { id: "2",  area: "2",  title: "Mathematical Concepts", detail: "1 course (e.g. Calc, Stats)" },
+  { id: "3a", area: "3A", title: "Arts",       detail: "1 course minimum" },
+  { id: "3b", area: "3B", title: "Humanities",  detail: "1 course minimum" },
+  { id: "4",  area: "4",  title: "Social & Behavioral Sciences", detail: "3 courses, 2+ disciplines" },
+  { id: "5a", area: "5A", title: "Physical Sciences", detail: "1 course" },
+  { id: "5b", area: "5B", title: "Biological Sciences", detail: "1 course" },
+  { id: "5c", area: "5C", title: "Lab Science",  detail: "1 lab (can overlap 5A or 5B)" },
+  { id: "6",  area: "6",  title: "Language Other Than English", detail: "2 years HS or 1 college course" },
+];
+
+const DEADLINES = [
+  { label: "TAG Application",     date: "Sept 1–30",   note: "Applies to UC Davis, Irvine, Merced, Riverside, UCSB, UCSC" },
+  { label: "UC Application",      date: "Nov 1–30",    note: "Apply at apply.universityofcalifornia.edu" },
+  { label: "FAFSA / CADAA Opens", date: "Oct 1",       note: "Apply early — CA Dream Act for undocumented students" },
+  { label: "Cal Grant Deadline",  date: "March 2",     note: "Must file FAFSA/CADAA by this date" },
+  { label: "Transfer Decision",   date: "April–May",   note: "UCs typically notify transfer applicants" },
+  { label: "SIR Deadline",        date: "June 1",      note: "Statement of Intent to Register at your chosen UC" },
+];
+
+// ── Markdown renderer ───────────────────────────────────────────────────────
+
+function renderInline(text: string): ReactNode {
+  const parts = text.split(/(\*\*.*?\*\*)/g);
+  return parts.map((p, i) =>
+    p.startsWith("**") && p.endsWith("**")
+      ? <strong key={i}>{p.slice(2, -2)}</strong>
+      : p
+  );
+}
+
+function SimpleMarkdown({ text }: { text: string }) {
+  const lines = text.split("\n");
+  const out: ReactNode[] = [];
+  let listBuf: string[] = [];
+
+  function flush() {
+    if (!listBuf.length) return;
+    out.push(
+      <ul key={out.length} className="my-2 space-y-1 pl-5 list-disc">
+        {listBuf.map((li, i) => <li key={i} className="text-sm leading-6">{renderInline(li)}</li>)}
+      </ul>
+    );
+    listBuf = [];
+  }
+
+  for (const raw of lines) {
+    const line = raw.trimEnd();
+    if (/^###\s/.test(line)) {
+      flush();
+      out.push(<h4 key={out.length} className="mt-4 mb-1 font-bold text-[#303236]">{line.slice(4)}</h4>);
+    } else if (/^##\s/.test(line)) {
+      flush();
+      out.push(<h3 key={out.length} className="mt-5 mb-1 text-base font-bold text-[#0b7f46]">{line.slice(3)}</h3>);
+    } else if (/^#\s/.test(line)) {
+      flush();
+      out.push(<h2 key={out.length} className="mt-5 mb-2 text-lg font-bold text-[#303236]">{line.slice(2)}</h2>);
+    } else if (/^[\*\-]\s/.test(line)) {
+      listBuf.push(line.slice(2));
+    } else if (line.trim() === "") {
+      flush();
+    } else {
+      flush();
+      out.push(<p key={out.length} className="my-1 text-sm leading-6">{renderInline(line)}</p>);
+    }
+  }
+  flush();
+  return <div>{out}</div>;
+}
+
+// ── UC Stats Panel ──────────────────────────────────────────────────────────
+
+function UCStatsPanel({ school }: { school: string }) {
+  const s = UC_STATS[school];
+  if (!s) return null;
+  const rateNum = parseFloat(s.rate);
+  const color = rateNum < 30 ? "text-red-600" : rateNum < 55 ? "text-yellow-600" : "text-green-600";
+  const label = rateNum < 30 ? "Very Selective" : rateNum < 55 ? "Selective" : "Accessible";
+  return (
+    <div className="mt-4 rounded-2xl border border-[#d8d0c3] bg-white p-4">
+      <p className="text-xs font-bold uppercase tracking-widest text-[#7b818b] mb-3">{school} — Admission Stats</p>
+      <div className="grid grid-cols-3 gap-3 text-center">
+        <div className="rounded-xl border border-[#d8d0c3] bg-[#faf8f3] p-3">
+          <p className={`text-xl font-bold ${color}`}>{s.rate}</p>
+          <p className="text-xs text-[#7b818b] mt-1">Transfer admit rate</p>
+        </div>
+        <div className="rounded-xl border border-[#d8d0c3] bg-[#faf8f3] p-3">
+          <p className="text-xl font-bold text-[#303236]">{s.gpa}</p>
+          <p className="text-xs text-[#7b818b] mt-1">Avg transfer GPA</p>
+        </div>
+        <div className="rounded-xl border border-[#d8d0c3] bg-[#faf8f3] p-3">
+          <p className={`text-xl font-bold ${s.tag ? "text-green-600" : "text-red-500"}`}>{s.tag ? "✓ TAG" : "✗ TAG"}</p>
+          <p className="text-xs text-[#7b818b] mt-1">{s.tag ? `Min GPA ${s.tagGPA}` : "No TAG offered"}</p>
+        </div>
+      </div>
+      <p className={`mt-3 text-xs font-semibold ${color}`}>{label} — UC systemwide minimum GPA is 2.4; aim for 3.5+ at selective campuses.</p>
+    </div>
+  );
+}
+
 export default function PlannerClient() {
   const [assistOptions, setAssistOptions] = useState<RequirementOptions>({
     colleges: [],
@@ -997,9 +1114,34 @@ export default function PlannerClient() {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const onboardingStarted = useRef(false);
 
+  // ── IGETC + tracker + panels ──────────────────────────────────
+  const [igetcChecked, setIgetcChecked] = useState<Record<string, boolean>>({});
+  const [trackerCourses, setTrackerCourses] = useState<{id:string;name:string;status:"planned"|"in-progress"|"done"}[]>([]);
+  const [trackerInput, setTrackerInput] = useState("");
+  const [showIgetc, setShowIgetc] = useState(false);
+  const [showTracker, setShowTracker] = useState(false);
+  const [showDeadlines, setShowDeadlines] = useState(false);
+  const [showTagChecker, setShowTagChecker] = useState(false);
+
   useEffect(() => {
     if (chatOpen) chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages, chatOpen]);
+
+  // Persist IGETC and tracker to localStorage
+  useEffect(() => {
+    try { localStorage.setItem("igetc", JSON.stringify(igetcChecked)); } catch {}
+  }, [igetcChecked]);
+  useEffect(() => {
+    try { localStorage.setItem("tracker", JSON.stringify(trackerCourses)); } catch {}
+  }, [trackerCourses]);
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("igetc");
+      if (saved) setIgetcChecked(JSON.parse(saved));
+      const saved2 = localStorage.getItem("tracker");
+      if (saved2) setTrackerCourses(JSON.parse(saved2));
+    } catch {}
+  }, []);
 
   // Parse |||JSON{...}||| blocks from AI onboarding responses
   function parseOnboardingJSON(text: string): { college: string; targetSchool: string; major: string; completedCourses: string; ready: boolean } | null {
@@ -1345,22 +1487,21 @@ export default function PlannerClient() {
   return (
     <main className="min-h-screen bg-[#eee9df] text-[#2f3135]">
       <section className="mx-auto max-w-7xl px-5 py-6 md:px-8">
-        <nav className="mb-12 flex items-center justify-between border-b border-[#d8d0c3] pb-5">
-          <div className="flex items-center gap-6">
+        <nav className="mb-8 flex items-center justify-between border-b border-[#d8d0c3] pb-4 gap-4 flex-wrap">
+          <div className="flex items-center gap-3 min-w-0">
             <img
               src="/coursebridge-logo.png"
               alt="CourseBridge logo"
-              className="h-60 w-auto mix-blend-multiply"
+              className="h-14 w-auto mix-blend-multiply sm:h-20 md:h-28 shrink-0"
             />
-
-            <p className="text-xl leading-tight text-[#7b818b]">
+            <p className="text-sm leading-tight text-[#7b818b] sm:text-base md:text-xl">
               Transfer planning for community college students
             </p>
           </div>
 
           <a
             href="#planner"
-            className="hidden rounded-xl bg-[#0b7f46] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#08683a] md:block"
+            className="rounded-xl bg-[#0b7f46] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#08683a] shrink-0"
           >
             Build your plan
           </a>
@@ -1372,7 +1513,7 @@ export default function PlannerClient() {
               Built around real transfer planning problems
             </p>
 
-            <h1 className="max-w-3xl text-5xl font-bold leading-tight tracking-tight text-[#303236] md:text-6xl">
+            <h1 className="max-w-3xl text-3xl font-bold leading-tight tracking-tight text-[#303236] sm:text-4xl md:text-5xl lg:text-6xl">
               Know exactly what classes you need before you transfer.
             </h1>
 
@@ -1560,14 +1701,25 @@ export default function PlannerClient() {
           <div className="rounded-3xl border border-[#d8d0c3] bg-[#faf8f3] p-6 shadow-[0_18px_45px_rgba(67,54,36,0.08)]">
             {/* AI-generated plan from Flask backend */}
             {(aiPlanLoading || aiPlan) && (
-              <div className="mb-6">
-                <div className="flex items-center gap-2 mb-3">
+              <div className="mb-6 print-plan">
+                <div className="flex items-center gap-2 mb-3 flex-wrap">
                   <span className="text-xs font-bold uppercase tracking-widest text-[#0b7f46]">Transfer AI Plan</span>
                   {aiPlanLoading && <span className="text-xs text-[#7b818b] animate-pulse">generating…</span>}
+                  {aiPlan && !aiPlanLoading && (
+                    <button
+                      onClick={() => window.print()}
+                      className="ml-auto rounded-lg border border-[#d8d0c3] px-3 py-1 text-xs text-[#7b818b] transition hover:border-[#0b7f46] hover:text-[#0b7f46] print:hidden"
+                    >
+                      Print / Save PDF
+                    </button>
+                  )}
                 </div>
-                <div className="rounded-2xl border border-[#d8d0c3] bg-white p-4 text-sm text-[#303236] leading-7 whitespace-pre-wrap">
-                  {aiPlan || <span className="text-[#a2a7af] animate-pulse">Transfer AI is building your personalized plan…</span>}
+                <div className="rounded-2xl border border-[#d8d0c3] bg-white p-4 text-sm text-[#303236]">
+                  {aiPlan
+                    ? <SimpleMarkdown text={aiPlan} />
+                    : <span className="text-[#a2a7af] animate-pulse">Transfer AI is building your personalized plan…</span>}
                 </div>
+                {aiPlan && activeSchoolTab && <UCStatsPanel school={activeSchoolTab} />}
               </div>
             )}
             {!result && !aiPlan && !aiPlanLoading && <EmptyDashboard />}
@@ -1715,6 +1867,191 @@ export default function PlannerClient() {
           </div>
         </section>
 
+        {/* ── Extra tools (visible after onboarding) ────────────── */}
+        {onboardingDone && (
+          <div className="mt-10 space-y-4 print:hidden">
+
+            {/* TAG Eligibility Checker */}
+            <div className="rounded-2xl border border-[#d8d0c3] bg-white overflow-hidden">
+              <button
+                onClick={() => setShowTagChecker(v => !v)}
+                className="w-full flex items-center justify-between px-5 py-4 text-left transition hover:bg-[#faf8f3]"
+              >
+                <div>
+                  <span className="text-sm font-bold text-[#303236]">TAG Eligibility Checker</span>
+                  <span className="ml-2 text-xs text-[#7b818b]">Transfer Admission Guarantee</span>
+                </div>
+                <span className="text-[#7b818b] text-lg">{showTagChecker ? "−" : "+"}</span>
+              </button>
+              {showTagChecker && (
+                <div className="px-5 pb-5 space-y-3">
+                  <p className="text-xs text-[#7b818b] leading-5">TAG guarantees admission if you meet the requirements. <strong>UCLA, UC Berkeley, and UCSD do NOT offer TAG.</strong></p>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    {Object.entries(UC_STATS).map(([uc, s]) => (
+                      <div key={uc} className={`rounded-xl border p-3 text-center ${s.tag ? "border-green-200 bg-green-50" : "border-[#d8d0c3] bg-[#faf8f3] opacity-60"}`}>
+                        <p className="text-xs font-bold text-[#303236]">{uc.replace("UC ", "UC ")}</p>
+                        {s.tag
+                          ? <><p className="mt-1 text-green-700 text-xs font-semibold">✓ TAG offered</p><p className="text-xs text-[#7b818b]">Min GPA: {s.tagGPA}</p></>
+                          : <p className="mt-1 text-xs text-[#9b1c1c]">✗ No TAG</p>
+                        }
+                      </div>
+                    ))}
+                  </div>
+                  <div className="rounded-xl bg-[#faf8f3] border border-[#d8d0c3] p-3">
+                    <p className="text-xs font-bold text-[#303236] mb-1">TAG Requirements (all UCs)</p>
+                    <ul className="text-xs text-[#6f7680] space-y-1 list-disc pl-4">
+                      <li>Complete 30+ semester transferable units before transfer</li>
+                      <li>Meet the campus minimum TAG GPA (see above)</li>
+                      <li>Complete IGETC or campus GE pattern (varies by campus)</li>
+                      <li>Apply via UC TAG portal: Sept 1–30 each year</li>
+                    </ul>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* IGETC Checklist */}
+            <div className="rounded-2xl border border-[#d8d0c3] bg-white overflow-hidden">
+              <button
+                onClick={() => setShowIgetc(v => !v)}
+                className="w-full flex items-center justify-between px-5 py-4 text-left transition hover:bg-[#faf8f3]"
+              >
+                <div>
+                  <span className="text-sm font-bold text-[#303236]">IGETC Checklist</span>
+                  <span className="ml-2 text-xs text-[#7b818b]">
+                    {Object.values(igetcChecked).filter(Boolean).length}/{IGETC_AREAS.length} areas done
+                  </span>
+                </div>
+                <span className="text-[#7b818b] text-lg">{showIgetc ? "−" : "+"}</span>
+              </button>
+              {showIgetc && (
+                <div className="px-5 pb-5 space-y-2">
+                  <p className="text-xs text-[#7b818b] mb-3">Check off each IGETC area as you complete it. Progress is saved in your browser.</p>
+                  {IGETC_AREAS.map(area => (
+                    <label key={area.id} className={`flex items-start gap-3 rounded-xl border px-4 py-3 cursor-pointer transition ${igetcChecked[area.id] ? "border-green-300 bg-green-50" : "border-[#d8d0c3] bg-[#faf8f3] hover:border-[#0b7f46]/40"}`}>
+                      <input
+                        type="checkbox"
+                        checked={!!igetcChecked[area.id]}
+                        onChange={e => setIgetcChecked(prev => ({ ...prev, [area.id]: e.target.checked }))}
+                        className="mt-0.5 h-4 w-4 rounded accent-[#0b7f46]"
+                      />
+                      <div>
+                        <p className="text-sm font-semibold text-[#303236]">Area {area.area} — {area.title}</p>
+                        <p className="text-xs text-[#7b818b]">{area.detail}</p>
+                      </div>
+                    </label>
+                  ))}
+                  <div className="mt-3 h-2 rounded-full bg-[#e0d9cf] overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-[#0b7f46] transition-all duration-300"
+                      style={{ width: `${Math.round((Object.values(igetcChecked).filter(Boolean).length / IGETC_AREAS.length) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Course Progress Tracker */}
+            <div className="rounded-2xl border border-[#d8d0c3] bg-white overflow-hidden">
+              <button
+                onClick={() => setShowTracker(v => !v)}
+                className="w-full flex items-center justify-between px-5 py-4 text-left transition hover:bg-[#faf8f3]"
+              >
+                <div>
+                  <span className="text-sm font-bold text-[#303236]">Course Progress Tracker</span>
+                  <span className="ml-2 text-xs text-[#7b818b]">
+                    {trackerCourses.filter(c => c.status === "done").length} done · {trackerCourses.filter(c => c.status === "in-progress").length} in progress
+                  </span>
+                </div>
+                <span className="text-[#7b818b] text-lg">{showTracker ? "−" : "+"}</span>
+              </button>
+              {showTracker && (
+                <div className="px-5 pb-5 space-y-3">
+                  <div className="flex gap-2">
+                    <input
+                      value={trackerInput}
+                      onChange={e => setTrackerInput(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === "Enter" && trackerInput.trim()) {
+                          setTrackerCourses(prev => [...prev, { id: Date.now().toString(), name: trackerInput.trim(), status: "planned" }]);
+                          setTrackerInput("");
+                        }
+                      }}
+                      placeholder="Add a course (e.g. MATH 1A)"
+                      className="flex-1 rounded-xl border border-[#d1c7b8] bg-[#faf8f3] px-3 py-2 text-sm outline-none focus:border-[#0b7f46] focus:ring-2 focus:ring-[#0b7f46]/10"
+                    />
+                    <button
+                      onClick={() => {
+                        if (trackerInput.trim()) {
+                          setTrackerCourses(prev => [...prev, { id: Date.now().toString(), name: trackerInput.trim(), status: "planned" }]);
+                          setTrackerInput("");
+                        }
+                      }}
+                      className="rounded-xl bg-[#0b7f46] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#08683a]"
+                    >Add</button>
+                  </div>
+                  {trackerCourses.length === 0 && (
+                    <p className="text-xs text-[#a2a7af] text-center py-3">No courses added yet. Type a course name and press Enter.</p>
+                  )}
+                  <div className="space-y-2">
+                    {trackerCourses.map(c => (
+                      <div key={c.id} className="flex items-center gap-3 rounded-xl border border-[#d8d0c3] bg-[#faf8f3] px-3 py-2">
+                        <p className="flex-1 text-sm text-[#303236]">{c.name}</p>
+                        <select
+                          value={c.status}
+                          onChange={e => setTrackerCourses(prev => prev.map(x => x.id === c.id ? { ...x, status: e.target.value as "planned"|"in-progress"|"done" } : x))}
+                          className={`rounded-lg border px-2 py-1 text-xs font-semibold outline-none ${c.status === "done" ? "border-green-300 bg-green-50 text-green-700" : c.status === "in-progress" ? "border-yellow-300 bg-yellow-50 text-yellow-700" : "border-[#d8d0c3] bg-white text-[#7b818b]"}`}
+                        >
+                          <option value="planned">Planned</option>
+                          <option value="in-progress">In Progress</option>
+                          <option value="done">Done</option>
+                        </select>
+                        <button
+                          onClick={() => setTrackerCourses(prev => prev.filter(x => x.id !== c.id))}
+                          className="text-xs text-[#c4b9aa] transition hover:text-[#9b1c1c]"
+                        >✕</button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Application Deadline Reminders */}
+            <div className="rounded-2xl border border-[#d8d0c3] bg-white overflow-hidden">
+              <button
+                onClick={() => setShowDeadlines(v => !v)}
+                className="w-full flex items-center justify-between px-5 py-4 text-left transition hover:bg-[#faf8f3]"
+              >
+                <div>
+                  <span className="text-sm font-bold text-[#303236]">Application Deadline Reminders</span>
+                  <span className="ml-2 text-xs text-[#7b818b]">TAG · UC App · FAFSA · more</span>
+                </div>
+                <span className="text-[#7b818b] text-lg">{showDeadlines ? "−" : "+"}</span>
+              </button>
+              {showDeadlines && (
+                <div className="px-5 pb-5">
+                  <div className="space-y-3">
+                    {DEADLINES.map(d => (
+                      <div key={d.label} className="flex items-start gap-4 rounded-xl border border-[#d8d0c3] bg-[#faf8f3] px-4 py-3">
+                        <div className="min-w-[90px]">
+                          <p className="text-xs font-bold text-[#0b7f46]">{d.date}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-[#303236]">{d.label}</p>
+                          <p className="text-xs text-[#7b818b]">{d.note}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="mt-3 text-xs text-[#a2a7af]">Dates are typical annual deadlines. Always confirm with the official UC and financial aid websites.</p>
+                </div>
+              )}
+            </div>
+
+          </div>
+        )}
+
         <footer className="mt-10 border-t border-[#d8d0c3] pt-5 text-sm text-[#7b818b]">
           Demo data only. CourseBridge is independent and not affiliated with
           ASSIST, UC, CSU, or CCSF. Always verify requirements through
@@ -1783,7 +2120,7 @@ export default function PlannerClient() {
                       <h2 className="mt-1 text-2xl font-bold text-[#303236]">Which UCs are you considering?</h2>
                       <p className="mt-1 text-sm text-[#7b818b]">Select all that apply — we'll build a plan for each</p>
                     </div>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                       {UC_OPTIONS.map(uc => (
                         <button key={uc} onClick={() => toggleUC(uc)}
                           className={`rounded-2xl border px-3 py-3 text-sm font-semibold transition ${wizardUCs.includes(uc) ? "border-[#0b7f46] bg-[#f0faf5] text-[#0b7f46]" : "border-[#d8d0c3] bg-[#faf8f3] text-[#303236] hover:border-[#0b7f46] hover:text-[#0b7f46]"}`}>
