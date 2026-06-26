@@ -1085,6 +1085,9 @@ export default function PlannerClient() {
     defaultRequirements
   );
 
+  const [ucOptions, setUcOptions] = useState<string[]>([]);
+  const [majorOptions2, setMajorOptions2] = useState<string[]>([]);
+
   const [communityCollege, setCommunityCollege] = useState("");
   const [targetSchool, setTargetSchool] = useState("");
   const [targetMajor, setTargetMajor] = useState("");
@@ -1340,44 +1343,38 @@ export default function PlannerClient() {
     }
   }, [chatInput, chatMessages, chatLoading, chatMode, onboardingDone, runOnboardingMessage, streamResponse]);
 
+  // Load colleges on mount
   useEffect(() => {
-    fetch('/data/assist_articulations.json')
-      .then((res) => res.json())
-      .then((data) => {
-        const options = data.assistOptions ?? {
-          colleges: [],
-          targetsByCollege: {},
-          majorsByCollegeAndTarget: {},
-        };
-        const requirements = data.assistRequirements ?? defaultRequirements;
-        const defaultCollege = options.colleges[0] ?? "";
-        const defaultTargetSchool =
-          defaultCollege && options.targetsByCollege[defaultCollege]
-            ? options.targetsByCollege[defaultCollege][0] ?? ""
-            : "";
-        const defaultTargetMajor =
-          defaultCollege && defaultTargetSchool
-            ? options.majorsByCollegeAndTarget[defaultCollege]?.[
-                defaultTargetSchool
-              ]?.[0] ?? ""
-            : "";
-
-        setAssistOptions(options);
-        setAssistRequirements(requirements);
-        setCommunityCollege("");
-        setTargetSchool("");
-        setTargetMajor("");
+    fetch("/api/options/colleges")
+      .then(r => r.json())
+      .then(data => {
+        const colleges: string[] = data.colleges ?? [];
+        setAssistOptions(prev => ({ ...prev, colleges }));
       })
-      .catch((error) => {
-        console.error('Failed to load articulation options:', error);
+      .catch(() => {
+        // Fallback to hardcoded options if backend unreachable
         const fallbackOptions = buildRequirementOptions(defaultRequirements);
         setAssistOptions(fallbackOptions);
-        setAssistRequirements(defaultRequirements);
-        setCommunityCollege('CCSF');
-        setTargetSchool('UC Berkeley');
-        setTargetMajor('Economics');
       });
   }, []);
+
+  // Load UCs when college changes
+  useEffect(() => {
+    if (!communityCollege) { setUcOptions([]); return; }
+    fetch(`/api/options/ucs?college=${encodeURIComponent(communityCollege)}`)
+      .then(r => r.json())
+      .then(data => setUcOptions(data.ucs ?? []))
+      .catch(() => setUcOptions([]));
+  }, [communityCollege]);
+
+  // Load majors when college + UC change
+  useEffect(() => {
+    if (!communityCollege || !targetSchool) { setMajorOptions2([]); return; }
+    fetch(`/api/options/majors?college=${encodeURIComponent(communityCollege)}&uc=${encodeURIComponent(targetSchool)}`)
+      .then(r => r.json())
+      .then(data => setMajorOptions2(data.majors ?? []))
+      .catch(() => setMajorOptions2([]));
+  }, [communityCollege, targetSchool]);
 
   const requirements = assistRequirements;
   const options = assistOptions;
@@ -1396,20 +1393,21 @@ export default function PlannerClient() {
     ? activeRequirements[communityCollege] ?? {}
     : {};
 
-  const schoolOptions = communityCollege
-    ? activeOptions.targetsByCollege[communityCollege] ?? []
-    : [];
+  // Use lazy-loaded options from backend; fall back to static data if needed
+  const schoolOptions = ucOptions.length > 0
+    ? ucOptions
+    : communityCollege ? (activeOptions.targetsByCollege[communityCollege] ?? []) : [];
 
   const selectedSchoolData = targetSchool
     ? selectedCollegeData[targetSchool] ?? {}
     : {};
 
   const majorOptions =
-    communityCollege && targetSchool
-      ? activeOptions.majorsByCollegeAndTarget[communityCollege]?.[
-          targetSchool
-        ] ?? []
-      : [];
+    majorOptions2.length > 0
+      ? majorOptions2
+      : communityCollege && targetSchool
+        ? activeOptions.majorsByCollegeAndTarget[communityCollege]?.[targetSchool] ?? []
+        : [];
 
   const selectedPlan = targetMajor ? selectedSchoolData[targetMajor] : null;
 
