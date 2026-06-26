@@ -2248,8 +2248,8 @@ export default function PlannerClient() {
         const steps = ["College","Target UCs","Major","Courses"];
         const toggleUC = (uc: string) => setWizardUCs(prev => prev.includes(uc) ? prev.filter(u => u !== uc) : [...prev, uc]);
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-            <div className="w-full max-w-lg rounded-3xl bg-white shadow-2xl overflow-hidden">
+          <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center bg-black/70 backdrop-blur-sm p-0 sm:p-4">
+            <div className="w-full max-w-lg rounded-t-3xl sm:rounded-3xl bg-white shadow-2xl flex flex-col max-h-[92vh] sm:max-h-[90vh]">
 
               {/* Green gradient header */}
               <div className="bg-gradient-to-br from-[#0a6e3d] to-[#0d9456] px-8 pt-7 pb-6">
@@ -2285,7 +2285,7 @@ export default function PlannerClient() {
                 </p>
               </div>
 
-              <div className="p-7">
+              <div className="p-7 overflow-y-auto flex-1">
                 {/* Step 1 — College */}
                 {wizardStep === 1 && (
                   <div className="flex flex-col gap-4">
